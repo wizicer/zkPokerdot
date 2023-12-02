@@ -6,27 +6,67 @@
 - 技术路线：利用substrate框架，创建pallet实现ZK的验证器，开发扑克游戏的电路逻辑，利用前端页面进行ZK证明，并提交交易上链完成游戏。
 - 截止日期：2023年12月25日
 
+## 游戏规则
+
+**发牌**
+
+| 欢乐斗地主 | zk斗地主 | 合约 |
+| -- | -- | -- |
+| 玩家准备游戏 | 各玩家生成私钥，并公开公钥 | 各玩家登记公钥 |
+| 准备一副扑克54张 | 加密扑克，并轮流洗牌，并发布洗牌的ZK证明 | 合约验证ZK证明 |
+| 发牌，每人17张 | 各玩家根据编号被分配17张牌 | - |
+| 看牌 | 玩家协助解密，各玩家可以看到自己的牌 | 传递解密信息 |
+| 叫地主，获得底牌 | 叫地主，地主玩家获得底牌 | 登记叫地主信息 |
+| 地主看底牌 | 玩家协助解密，地主看到底牌 | 传递解密信息 |
+
+**出牌**
+
+| 欢乐斗地主 | zk斗地主 | 合约 |
+| -- | -- | -- |
+| 根据牌型牌面大小出牌 | 出牌，并证明出的牌属于自己的牌 | 记录出牌，验证出牌符合规则，并验证ZK证明 |
+| 当无法出牌时，喊“过” | 喊“过” | 记录信息 |
+
+**胜利**
+
+| 欢乐斗地主 | zk斗地主 |
+| -- | -- |
+| 任意玩家出完手中牌 | 任意玩家出完手中牌 |
+
+**牌型大小**
+
+单牌 < 对子 < 三张 < 炸弹（四张） < 王炸（大小王）
+
+**牌面大小**
+
+3 < 4 < 5 < 6 < 7 < 8 < 9 < 10 < J < Q < K < A < 2 < 小王 < 大王
+
 
 ## 工作分解：
 
 - 节点：利用substrate框架，开发pallet，实现链上ZK的Verify
-- 前端：扑克游戏的交互界面
 - 合约：扑克游戏的公开规则验证
-- 电路：开发ZK电路，实现扑克游戏的验证逻辑
+- 前端：扑克游戏的交互界面
 - 初始化：可验证秘密洗牌(Verifiable Secret Shuffling)
+- 电路：开发ZK电路，实现扑克游戏的验证逻辑
 
 
 ## 参考链接
 
-- https://github.com/Zkvers/substrate-zk
-- https://hackmd.io/@nmohnblatt/SJKJfVqzq
-- https://medium.com/coinmonks/zk-poker-a-simple-zk-snark-circuit-8ec8d0c5ee52
-- https://geometry.xyz/notebook/mental-poker-in-the-age-of-snarks-part-1
-- https://geometry.xyz/notebook/mental-poker-in-the-age-of-snarks-part-2
-- https://github.com/geometryresearch/mental-poker/
-- https://zkholdem.xyz/wp-content/themes/zkholdem-theme/zkshuffle.pdf
-- https://docs.manta.network/docs/guides/zkHoldem/About
-- https://www.youtube.com/watch?v=KGs3A3GMcuw
+- 节点和合约
+    - https://docs.substrate.io/
+    - https://www.bilibili.com/video/BV1RL411b7Nh/
+    - https://github.com/Zkvers/substrate-zk
+- 密码学
+    - https://www.youtube.com/watch?v=KGs3A3GMcuw
+    - https://geometry.xyz/notebook/mental-poker-in-the-age-of-snarks-part-1
+    - https://geometry.xyz/notebook/mental-poker-in-the-age-of-snarks-part-2
+    - https://github.com/geometryresearch/mental-poker/
+    - https://hackmd.io/@nmohnblatt/SJKJfVqzq
+    - https://medium.com/coinmonks/zk-poker-a-simple-zk-snark-circuit-8ec8d0c5ee52
+    - https://zkholdem.xyz/wp-content/themes/zkholdem-theme/zkshuffle.pdf
+    - https://docs.manta.network/docs/guides/zkHoldem/About
+- 前端
+    - https://js-css-poker.sourceforge.io/
 
 ## 问答
 
