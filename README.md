@@ -64,6 +64,107 @@
 - 初始化：可验证秘密洗牌(Verifiable Secret Shuffling)
 - 电路：开发ZK电路，实现扑克游戏的验证逻辑
 
+## 功能列表
+
+**接口：合约 \<-\> 前端**
+
+- [ ] 启动游戏 `fn create_game(name: String, pub_key: String) -> uint`
+- [ ] 登记公钥 `fn join_game(id: uint, pub_key: String)`
+- [ ] 提交洗牌数据 `fn shuffle(id: uint, cards: uint[])`
+- [ ] 传递解密信息 `fn unmask(id: uint, unmask: uint[])`
+- [ ] 登记叫地主 `fn call(id: uint, pub_key: String)`
+- [ ] 提交出牌数据 `fn play(id: uint, pub_key: String, cards: uint[])`
+
+_说明：涉及密码学信息传递部分还需要再斟酌一下，可能会有改变_
+
+**功能：节点+合约**
+
+- [ ] 节点基础框架
+- [ ] 随机源选取
+- [ ] 出牌规则验证
+- [ ] 集成ZK验证
+
+**功能：前端**
+
+- [ ] 基础扑克牌界面
+- [ ] 开始/加入游戏交互
+- [ ] 发牌交互
+- [ ] 叫地主界面交互
+- [ ] 出牌界面交互
+- [ ] 胜利界面交互
+
+**功能：密码学**
+
+- [ ] 可验证秘密洗牌机制说明
+- [ ] 洗牌ZK证明生成
+- [ ] 出牌ZK证明生成
+- [ ] 私牌解密
+- [ ] 公牌解密
+- [ ] ZK验证器
+
+## 交互逻辑
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant a as Alice
+    participant p as Pallet
+    participant b as Bob
+    participant c as Carol
+    a->>p: create_game
+    p-->>a: game_id
+    b->>p: join_game
+    c->>p: join_game
+
+    a->>p: shuffle
+    b->>p: shuffle
+    c->>p: shuffle
+
+    a->>p: unmask
+    b->>p: unmask
+    c->>p: unmask
+
+    alt 
+        a->>p: call
+        Note over a, c: Can also be called by Bob/Carol
+    end
+
+    a->>p: unmask
+    b->>p: unmask
+    c->>p: unmask
+
+    loop Turn
+        a->>p: play
+        activate p
+        p->>p: win?
+        deactivate p
+
+        b->>p: play
+        activate p
+        p->>p: win?
+        deactivate p
+
+        c->>p: play
+        activate p
+        p->>p: win?
+        deactivate p
+    end
+```
+
+**步骤**
+
+- 1-4：开始游戏
+- 5-7：玩家轮流洗牌
+- 8-10：玩家互相协助解密，使得各玩家可以看到自己的牌
+- 11：叫地主，根据简化规则，A/B/C都可以叫，以先叫的为判定依据
+- 12-14：协助解密公牌
+- 15-20：出牌轮次，出牌并做规则判定
+
+
+**疑问：**
+
+- unmask是否可以并行？
+- play阶段直接公开的卡片是否可以不用unmask？（通过承诺/ZK的方式）
 
 ## 参考链接
 
@@ -90,8 +191,3 @@
 Q: 为什么要做？为什么值得做？
 
 A: 在传统游戏环境中，服务器可能导致作弊行为，从而影响游戏的公平性。而借助于零知识证明这一技术，有效地确保了游戏的公平性。
-
-
-## TODO：
-
-- 接口
