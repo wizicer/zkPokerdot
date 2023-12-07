@@ -1,28 +1,30 @@
 <template>
   <div class="room-management">
-    <h1>房间管理</h1>
-    
+    <h1>LOGO</h1>
     <div class="button-container">
       <!-- 加入房间按钮 -->
       <button class="join-room-button" @click="joinRoom">加入房间</button>
 
       <!-- 创建房间按钮 -->
-      <button class="create-room-button" @click="createRoom">创建房间</button>
+      <button class="create-room-button" @click="showForm = true">创建房间</button>
+
+      <!-- 使用表单组件 -->
+      <RoomForm :visible="showForm" @submit="handleFormSubmit" @close="showForm = false" />
     </div>
   </div>
 </template>
 
 <script setup lang = 'ts'>
 import { ref } from 'vue'
+import RoomForm from './components/RoomForm.vue';
 const joinRoom = () => {
   // 可以在这里编写加入房间的相关代码
   console.log('加入房间');
 };
+const showForm = ref(false);
 
-// 创建房间逻辑
-const createRoom = () => {
-  // 可以在这里编写创建房间的相关代码
-  console.log('创建房间');
+const handleFormSubmit = (submittedData) => {
+  console.log('处理提交的数据:', submittedData);
 };
 </script>
 
