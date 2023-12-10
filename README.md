@@ -17,7 +17,9 @@ TODO
 
 ## 本项目的起点
 
-TODO
+- VueJs 3: https://vuejs.org/guide/introduction.html
+- Substrate Node: https://github.com/substrate-developer-hub/substrate-node-template
+- Cryptography: https://github.com/geometryresearch/mental-poker
 
 ## 黑客松期间计划完成的事项
 
