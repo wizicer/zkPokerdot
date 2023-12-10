@@ -1,50 +1,48 @@
 <template>
-    <el-container>
+  <el-container class="poker-game-container">
+    <!-- 游戏区域 -->
+    <el-row class="game-area">
       <!-- 玩家区域 -->
-      <el-row class="player-row" v-for="player in players" :key="player.id">
-        <el-col :span="24">
-          <div class="player">
-            <div class="player-name">{{ player.name }}</div>
-            <div class="player-cards">
-              <!-- 展示每位玩家的扑克牌 -->
-              <el-card class="poker-card" v-for="card in player.cards" :key="card">
-                {{ card }}
-              </el-card>
-            </div>
-          </div>
-        </el-col>
-      </el-row>
-    </el-container>
-  </template>
-  
-  <script setup lang="ts">
-  import { ref } from 'vue';
-  
-  // 示例数据
-  const players = ref([
-    { id: 1, name: '玩家1', cards: ['♠️A', '♥️K', '♦️Q'] },
-    { id: 2, name: '玩家2', cards: ['♣️J', '♠️10', '♥️9'] },
-    { id: 3, name: '玩家3', cards: ['♦️8', '♣️7', '♠️6'] }
-  ]);
-  </script>
-  
-  <style scoped>
-  .player-row {
-    margin-bottom: 20px;
-  }
-  
-  .player {
-    text-align: center;
-  }
-  
-  .player-name {
-    margin-bottom: 10px;
-    font-weight: bold;
-  }
-  
-  .player-cards .poker-card {
-    display: inline-block;
-    margin-right: 10px;
-  }
-  </style>
-  
+      <el-col :span="8" class="player-sidebar">
+        <!-- 玩家二的区域 -->
+      </el-col>
+      <el-col :span="8" class="player-main">
+        <!-- 玩家一的牌 -->
+        <div class="player-cards">
+          <poker-card v-for="card in playerOneCards" :key="card" :card="card" />
+        </div>
+        <!-- 控制按钮 -->
+        <div class="game-controls">
+          <el-button type="primary" @click="prepareGame">准备</el-button>
+          <el-button type="warning" @click="callGame">叫地主</el-button>
+          <el-button type="primary" @click="playCards">出牌</el-button>
+          <el-button type="primary" @click="passTurn">过</el-button>
+        </div>
+      </el-col>
+      <el-col :span="8" class="player-sidebar">
+        <!-- 玩家三的区域 -->
+      </el-col>
+    </el-row>
+  </el-container>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import PokerCard from './PokerCard.vue';
+
+const playerOneCards = ref(['J', 'Q', 'K', 'A']);
+const prepareGame = () => {
+  console.log("准备游戏");//准备游戏
+}
+const playCards = () => {
+  console.log("出牌");//出牌
+}
+const passTurn = () => {
+  console.log("过");//出牌
+}
+const callGame = () => {
+  console.log("叫地主");//叫地主
+}
+</script>
+
+<style scoped></style>
