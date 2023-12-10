@@ -173,6 +173,7 @@ sequenceDiagram
     - https://www.bilibili.com/video/BV1RL411b7Nh/
     - https://github.com/Zkvers/substrate-zk
     - https://substrate-developer-hub.github.io/substrate-how-to-guides/docs/intro
+    - https://polkadot.js.org/
 - 密码学
     - https://www.youtube.com/watch?v=KGs3A3GMcuw
     - https://geometry.xyz/notebook/mental-poker-in-the-age-of-snarks-part-1
