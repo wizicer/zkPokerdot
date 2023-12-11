@@ -54,10 +54,49 @@
   
 <script setup lang="ts">
 import { ElContainer, ElHeader, ElFooter, ElMain, ElRow, ElCol, ElButton } from 'element-plus';
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { ApiPromise, WsProvider } from '@polkadot/api'
 
+onMounted(async () => {
+  // returns an array of all the injected sources
+  // (this needs to be called first, before other requests)
+  const allInjected = await web3Enable('my cool dapp')
+
+  // returns an array of { address, meta: { name, source } }
+  // meta.source contains the name of the extension that provides this account
+  const allAccounts = await web3Accounts()
+  console.log(allAccounts, allInjected)
+
+  // the address we use to use for signing, as injected
+  const SENDER = allAccounts[0].address
+
+  // finds an injector for an address
+  const injector = await web3FromAddress(SENDER)
+  console.log(injector)
+  const wsProvider = new WsProvider('ws://127.0.0.1:9944')
+
+  // sign and send our transaction - notice here that the address of the account
+  // (as retrieved injected) is passed through as the param to the `signAndSend`,
+  // the API then calls the extension to present to the user and get it signed.
+  // Once complete, the api sends the tx + signature via the normal process
+  // const api = await ApiRx.create({ provider: injector.provider }).toPromise()
+  const api = await ApiPromise.create({ provider: wsProvider })
+  console.log("api", api)
+  if (!api) {
+    throw new Error('Unable to create ApiRx instance')
+  }
+  // const result = await api.tx.balances
+  //   .transfer('5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y', 123456)
+  //   .signAndSend(SENDER, { signer: injector.signer }, (status) => {
+  //     console.log('tx status', status)
+  //   })
+
+  const tx = api.tx.templateModule.doSomething(99);
+  const result = await tx.signAndSend(SENDER, { signer: injector.signer });
+
+  console.log('result', result)
+});
 const createRoomVisible = ref(false)
 const joinRoomVisible = ref(false)
 const formLabelWidth = '140px'
