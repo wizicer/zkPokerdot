@@ -37,6 +37,9 @@
   </el-dialog>
   <el-dialog v-model="joinRoomVisible" title="加入房间">
     <el-form :model="joinRoomVisible">
+      <el-form-item label="房间名" :label-width="formLabelWidth">
+        <el-input v-model="joinRoomform.roomName" autocomplete="off" />
+      </el-form-item>
       <el-form-item label="公钥" :label-width="formLabelWidth">
         <el-input v-model="joinRoomform.publicKey" autocomplete="off" />
       </el-form-item>
@@ -57,6 +60,7 @@ import { ElContainer, ElHeader, ElFooter, ElMain, ElRow, ElCol, ElButton } from 
 import { ref, reactive, onMounted } from 'vue';
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { ApiPromise, WsProvider } from '@polkadot/api'
+import { useRouter } from 'vue-router';
 
 onMounted(async () => {
   // returns an array of all the injected sources
@@ -97,6 +101,7 @@ onMounted(async () => {
 
   console.log('result', result)
 });
+const router = useRouter();
 const createRoomVisible = ref(false)
 const joinRoomVisible = ref(false)
 const formLabelWidth = '140px'
@@ -105,6 +110,7 @@ const createRoomform = reactive({
   publicKey: ''
 })
 const joinRoomform = reactive({
+  roomName: '',
   publicKey: ''
 })
 
@@ -119,17 +125,19 @@ const createRoom = () => {
 const createRoomConfirm = () => {
   console.log('创建房间确认');
   createRoomVisible.value = false
+  router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName } });
 }
 
 const joinRoomConfirm = () => {
   console.log('加入房间确认');
   joinRoomVisible.value = false
+  router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName } });
 }
 </script>
   
 <style scoped>
 .full-height {
-  height: 90vh;
+  height: 100vh;
   /* 全屏高度 */
   display: flex;
   flex-direction: column;

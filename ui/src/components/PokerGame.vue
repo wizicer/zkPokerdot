@@ -1,6 +1,8 @@
 <template>
   <div class="poker-ganme">
     <div class="table">
+      <!-- 房间名字 -->
+      <p class="room-name">房间名:{{roomName}}</p>
       <!-- 顶部三张牌 -->
       <div class="top-table">
         <el-card shadow="hover" :body-style="{ padding: '0px' }">
@@ -14,13 +16,12 @@
         </el-card>
       </div>
       <!-- 玩家手牌 -->
-      <div class="player-pokers" >
+      <div class="player-pokers">
         <el-card shadow="hover" :body-style="{ padding: '0px' }" class="player-card"
-          v-for="(poker, index) in player1.hands"
-          :key="poker.id"
-          :style="{ left: index * 20 + 'px' }"
-          :isSelected="poker.isSelected">
-          <img :src="`/src/images/${poker.id}.png`" class="image" :style="{ width: '120px', height: 'auto' }"/>
+          v-for="(poker, index) in player1.hands" :key="poker.id" :style="{ left: index * 20 + 'px' }"
+          :class="{ 'is-selected': poker.isSelected }">
+          <img :src="`/src/images/${poker.img}.png`" class="image" :style="{ width: '120px', height: 'auto' }"
+            @click="selectCard(poker)" />
         </el-card>
       </div>
       <!-- 左侧手牌 -->
@@ -39,14 +40,9 @@
         <div class="back"></div>
       </div>
     </div>
-    <div class="player-list">
-      <div class="player1">玩家一</div>
-      <div class="player2">玩家二</div>
-      <div class="player3">玩家三</div>
-    </div>
     <!-- 叫地主和不叫的按钮 -->
     <div class="btn-group">
-      <div class="ui-tip" v-show="!gamePrepared">
+      <div class="ui-tip" v-show="gamePrepared">
         <el-button type="primary" @click="prepareGame">准备</el-button>
       </div>
       <div class="ui-tip" v-show="!gameStarted">
@@ -59,6 +55,11 @@
       </div>
     </div>
   </div>
+  <div class="player-list">
+    <el-avatar class="player-middle" v-show="gamePrepared"> Alice </el-avatar>
+    <el-avatar class="player-left" v-show="gamePrepared"> Bob </el-avatar>
+    <el-avatar class="player-right" v-show="gamePrepared"> Carol </el-avatar>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -67,10 +68,13 @@ import { ref } from 'vue';
 import POKERS from '../constant/poker';
 import type { PokerCard } from '../constant/poker';
 import type { Ref } from 'vue';
+import { useRoute } from 'vue-router';
 
-const gamePrepared = ref(false);//已经准备
+const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
 const gamePlayed = ref(true);//已经玩了
+const route = useRoute();
+const roomName = route.query.roomName;
 
 interface Player {
   name: string,//名字
@@ -95,12 +99,13 @@ function getRandomCards(cards: PokerCard[], count: number): PokerCard[] {
 
 const prepareGame = () => {
   console.log("准备游戏");//准备游戏
-  gamePrepared.value = true;
+  gamePrepared.value = false;
   player1.value.hands = getRandomCards(POKERS, 17);
+  player1.value.hands.sort((a, b) => b.id - a.id);
   console.log(player1.value.hands);
+  gameStarted.value = false;
 }
 const playCards = () => {
-  gamePlayed.value = true;
   console.log("出牌");//出牌
 }
 const passTurn = () => {
@@ -108,10 +113,14 @@ const passTurn = () => {
 }
 const callGame = () => {
   console.log("叫地主");//叫地主
+  gamePlayed.value = false;
   gameStarted.value = true;
 }
 const skipCallGame = () => {
   console.log("不叫");//不叫
+}
+const selectCard = (poker: PokerCard) => {
+  poker.isSelected = !poker.isSelected
 }
 </script>
 
@@ -131,9 +140,22 @@ const skipCallGame = () => {
     align-items: center;
     z-index: 20;
 
-    .top-table {
+    .room-name {
       position: absolute;
       top: 0;
+      left: 50%;
+      transform: translate(-50%, 0);
+      display: flex;
+      height: 50px;
+      margin: 10px;
+      text-align: center;
+      border-radius: 4px;
+      color: var(--el-color-primary);
+    }
+
+    .top-table {
+      position: absolute;
+      top: +3vw;
       left: 50%;
       transform: translate(-50%, 0);
       display: flex;
@@ -147,8 +169,13 @@ const skipCallGame = () => {
       transform: translate(-50%, 0);
       display: flex;
       width: calc(16 * 20px + 120px);
-      .player-card{
+
+      .player-card {
         position: absolute;
+      }
+
+      .player-card.is-selected {
+        top: -2vw;
       }
     }
 
@@ -169,6 +196,32 @@ const skipCallGame = () => {
       height: 12vh;
       padding: 0;
     }
+  }
+}
+
+.player-list {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  top: 0;
+
+  .player-left {
+    position: absolute;
+    left: 16vw;
+    top: 45vh;
+  }
+
+  .player-right {
+    position: absolute;
+    right: 17vw;
+    top: 45vh;
+  }
+
+  .player-middle {
+    position: absolute;
+    left: 35vw;
+    top: 90vh;
   }
 }
 
