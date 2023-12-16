@@ -73,8 +73,7 @@ const createRoomform = reactive({
   roomName: '',
   publicKey: ''
 })
-let api:ApiPromise;//api调用
-let SENDER:string;
+
 
 const joinRoomform = reactive({
   roomName: '',
@@ -92,46 +91,35 @@ const createRoom = async() => {
 const createRoomConfirm = async() => {
   console.log('创建房间确认');
   createRoomVisible.value = false
-   // returns an array of all the injected sources
-  // (this needs to be called first, before other requests)
+
+   // 激活与浏览器扩展的连接
   const allInjected = await web3Enable('my cool dapp')
 
-  // returns an array of { address, meta: { name, source } }
-  // meta.source contains the name of the extension that provides this account
+  // 获取所有通过Polkadot扩展注入的账户
   const allAccounts = await web3Accounts()
   console.log('allAccounts and allInjected',allAccounts, allInjected)
 
-  // the address we use to use for signing, as injected
-  SENDER = allAccounts[0].address
+  // 选择第一个账户的地址作为发送者
+  const SENDER = allAccounts[0].address
 
-  // finds an injector for an address
+  // 为指定的地址找到一个注入器
   const injector = await web3FromAddress(SENDER)
   console.log('SENDER',SENDER)
-  //这里会弹出弹窗
+  // 连接到Polkadot节点
   const wsProvider = new WsProvider('ws://192.168.32.223:9944')
-
-  // sign and send our transaction - notice here that the address of the account
-  // (as retrieved injected) is passed through as the param to the `signAndSend`,
-  // the API then calls the extension to present to the user and get it signed.
-  // Once complete, the api sends the tx + signature via the normal process
-  // const api = await ApiRx.create({ provider: injector.provider }).toPromise()
-  api = await ApiPromise.create({ provider: wsProvider })
+  // 创建一个与Polkadot区块链交互的API实例
+  const api = await ApiPromise.create({ provider: wsProvider })
   console.log("api", api)
   if (!api) {
     throw new Error('Unable to create ApiRx instance')
   }
-  // const result = await api.tx.balances
-  //   .transfer('5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y', 123456)
-  //   .signAndSend(SENDER, { signer: injector.signer }, (status) => {
-  //     console.log('tx status', status)
-  //   })
-  
+
+  //调用createGame方法
   const tx = api.tx.zkPoker.createGame(createRoomform.roomName);
-
+  //这里会弹出弹窗
   const result = await tx.signAndSend(SENDER, { signer: injector.signer });
-
   console.log('result', result)
-  const ret = await api.query.zkPoker.game(99);
+  const ret = await api.query.zkPoker.game(createRoomform.roomName);
   console.log('ret', ret)
   router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName } });
 }
@@ -139,8 +127,7 @@ const createRoomConfirm = async() => {
 const joinRoomConfirm = async() => {
   console.log('加入房间确认');
   joinRoomVisible.value = false
-    // returns an array of all the injected sources
-  // (this needs to be called first, before other requests)
+
   const allInjected = await web3Enable('my cool dapp')
 
   // returns an array of { address, meta: { name, source } }
@@ -149,12 +136,12 @@ const joinRoomConfirm = async() => {
   console.log('allAccounts and allInjected',allAccounts, allInjected)
 
   // the address we use to use for signing, as injected
-  SENDER = allAccounts[0].address
+  const SENDER = allAccounts[0].address
 
   // finds an injector for an address
   const injector = await web3FromAddress(SENDER)
   console.log('SENDER',SENDER)
-  //这里会弹出弹窗
+  
   const wsProvider = new WsProvider('ws://192.168.32.223:9944')
 
   // sign and send our transaction - notice here that the address of the account
@@ -162,7 +149,7 @@ const joinRoomConfirm = async() => {
   // the API then calls the extension to present to the user and get it signed.
   // Once complete, the api sends the tx + signature via the normal process
   // const api = await ApiRx.create({ provider: injector.provider }).toPromise()
-  api = await ApiPromise.create({ provider: wsProvider })
+  const api = await ApiPromise.create({ provider: wsProvider })
   console.log("api", api)
   if (!api) {
     throw new Error('Unable to create ApiRx instance')
