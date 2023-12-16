@@ -56,9 +56,9 @@
     </div>
   </div>
   <div class="player-list">
-    <el-avatar class="player-middle" v-show="gamePrepared"> Alice </el-avatar>
-    <el-avatar class="player-left" v-show="gamePrepared"> Bob </el-avatar>
-    <el-avatar class="player-right" v-show="gamePrepared"> Carol </el-avatar>
+    <el-avatar class="player-middle" v-show="!gamePrepared"> Alice </el-avatar>
+    <el-avatar class="player-left" v-show="!gamePrepared"> Bob </el-avatar>
+    <el-avatar class="player-right" v-show="!gamePrepared"> Carol </el-avatar>
   </div>
 </template>
 
