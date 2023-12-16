@@ -1,54 +1,56 @@
 <template>
   <el-container class="full-height">
     <el-header>
-      <div class="logo">LOGO</div>
+      <!-- 可能需要一个logo -->
+      <div class="logo"></div>
     </el-header>
-    <el-main>
-      <el-row :gutter="20">
+    <el-main class="main-content">
+      <el-row :gutter="20" class="button-row">
         <el-col :span="12">
-          <el-button type="primary" block @click="createRoom">创建房间</el-button>
+          <el-button type="primary" block @click="createRoom">Create Room</el-button>
         </el-col>
         <el-col :span="12">
-          <el-button type="success" block @click="joinRoom">加入房间</el-button>
+          <el-button type="success" block @click="joinRoom">Join Room</el-button>
         </el-col>
       </el-row>
     </el-main>
     <el-footer>
-      <div class="footer-content">底部信息</div>
+      <!-- 可能需要一个FOOTER -->
+      <div class="footer-content"></div>
     </el-footer>
   </el-container>
-  <el-dialog v-model="createRoomVisible" title="创建房间">
+  <el-dialog v-model="createRoomVisible" title="Create Room">
     <el-form :model="createRoomform">
-      <el-form-item label="房间名" :label-width="formLabelWidth">
+      <el-form-item label="Room Name" :label-width="formLabelWidth">
         <el-input v-model="createRoomform.roomName" autocomplete="off" />
       </el-form-item>
-      <el-form-item label="公钥" :label-width="formLabelWidth">
+      <el-form-item label="Public Key" :label-width="formLabelWidth">
         <el-input v-model="createRoomform.publicKey" autocomplete="off" />
       </el-form-item>
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="createRoomVisible = false">取消</el-button>
+        <el-button @click="createRoomVisible = false">Cancel</el-button>
         <el-button type="primary" @click="createRoomConfirm">
-          确定
+          Confirm
         </el-button>
       </span>
     </template>
   </el-dialog>
-  <el-dialog v-model="joinRoomVisible" title="加入房间">
+  <el-dialog v-model="joinRoomVisible" title="Join Room">
     <el-form :model="joinRoomVisible">
-      <el-form-item label="房间名" :label-width="formLabelWidth">
+      <el-form-item label="Room Name" :label-width="formLabelWidth">
         <el-input v-model="joinRoomform.roomName" autocomplete="off" />
       </el-form-item>
-      <el-form-item label="公钥" :label-width="formLabelWidth">
+      <el-form-item label="Public Key" :label-width="formLabelWidth">
         <el-input v-model="joinRoomform.publicKey" autocomplete="off" />
       </el-form-item>
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="joinRoomVisible = false">取消</el-button>
+        <el-button @click="joinRoomVisible = false">Cancel</el-button>
         <el-button type="primary" @click="joinRoomConfirm">
-          确定
+          Confirm
         </el-button>
       </span>
     </template>
@@ -91,6 +93,7 @@ const createRoom = async() => {
 const createRoomConfirm = async() => {
   console.log('创建房间确认');
   createRoomVisible.value = false
+  router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName } });
 
    // 激活与浏览器扩展的连接
   const allInjected = await web3Enable('my cool dapp')
@@ -121,96 +124,80 @@ const createRoomConfirm = async() => {
   console.log('result', result)
   const ret = await api.query.zkPoker.game(createRoomform.roomName);
   console.log('ret', ret)
-  router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName } });
 }
 
 const joinRoomConfirm = async() => {
   console.log('加入房间确认');
   joinRoomVisible.value = false
+  router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName } });
 
+  // 激活与浏览器扩展的连接
   const allInjected = await web3Enable('my cool dapp')
 
-  // returns an array of { address, meta: { name, source } }
-  // meta.source contains the name of the extension that provides this account
+  // 获取所有通过Polkadot扩展注入的账户
   const allAccounts = await web3Accounts()
   console.log('allAccounts and allInjected',allAccounts, allInjected)
 
-  // the address we use to use for signing, as injected
+  // 选择第一个账户的地址作为发送者
   const SENDER = allAccounts[0].address
 
-  // finds an injector for an address
+  // 为指定的地址找到一个注入器
   const injector = await web3FromAddress(SENDER)
   console.log('SENDER',SENDER)
   
   const wsProvider = new WsProvider('ws://192.168.32.223:9944')
 
-  // sign and send our transaction - notice here that the address of the account
-  // (as retrieved injected) is passed through as the param to the `signAndSend`,
-  // the API then calls the extension to present to the user and get it signed.
-  // Once complete, the api sends the tx + signature via the normal process
-  // const api = await ApiRx.create({ provider: injector.provider }).toPromise()
+  // 创建一个与Polkadot区块链交互的API实例
   const api = await ApiPromise.create({ provider: wsProvider })
   console.log("api", api)
   if (!api) {
     throw new Error('Unable to create ApiRx instance')
   }
-  // const result = await api.tx.balances
-  //   .transfer('5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y', 123456)
-  //   .signAndSend(SENDER, { signer: injector.signer }, (status) => {
-  //     console.log('tx status', status)
-  //   })
-  
-  //const tx = api.tx.zkPoker.createGame(567);
-
-  //const result = await tx.signAndSend(SENDER, { signer: injector.signer });
-
-  //console.log('result', result)
- 
+  //调用joinGame
   const tx = await api.tx.zkPoker.joinGame(joinRoomform.roomName);
+  //这里会弹出弹窗
   const result = await tx.signAndSend(SENDER, { signer: injector.signer });
   console.log('result', result)
-  router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName } });
 }
 </script>
   
 <style scoped>
 .full-height {
   height: 100vh;
-  /* 全屏高度 */
   display: flex;
   flex-direction: column;
-  /* 垂直布局 */
 }
 
 .logo {
   text-align: center;
-  /* 根据需求添加LOGO的样式 */
 }
 
-.row-bg {
+.main-content {
+  flex-grow: 1;
+  display: flex;
   align-items: center;
-  /* 垂直居中 */
-  min-height: 60vh;
-  /* 确保按钮垂直居中 */
+  justify-content: center;
+}
+
+.button-row {
+  width: 100%;
+  max-width: 600px; /* 控制按钮行的最大宽度 */
+  text-align: center;
 }
 
 .footer-content {
   text-align: center;
-  /* 根据需求添加底部信息的样式 */
 }
 
-/* 适当调整间距和对齐 */
+/* 调整 header 和 footer 的样式 */
 .el-header,
 .el-footer {
-  flex: 0 0 auto;
+  flex-shrink: 0;
 }
 
-.el-main {
-  flex: 1 0 auto;
-  display: flex;
-  align-items: center;
-  /* 这会垂直居中.el-main的内容 */
-  justify-content: center;
-  /* 水平居中 */
+/* 调整按钮样式 */
+.el-button {
+  padding: 10px 20px; /* 增加按钮的填充 */
+  font-size: 1.2em; /* 增加字体大小 */
 }
 </style>
