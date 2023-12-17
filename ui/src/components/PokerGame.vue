@@ -56,9 +56,9 @@
     </div>
   </div>
   <div class="player-list">
-    <el-avatar class="player-middle" v-show="!gamePrepared"> {{ playerMiddle.name }} </el-avatar>
-    <el-avatar class="player-left" v-show="!gamePrepared"> {{ playerLeft.name }} </el-avatar>
-    <el-avatar class="player-right" v-show="!gamePrepared"> {{ playerRight.name }} </el-avatar>
+    <el-avatar class="player-middle" v-show="playerMiddle.name !== ' '"> {{ playerMiddle.name }} </el-avatar>
+    <el-avatar class="player-left" v-show="playerLeft.name !== ' '"> {{ playerLeft.name }} </el-avatar>
+    <el-avatar class="player-right" v-show="playerRight.name !== ' '"> {{ playerRight.name }} </el-avatar>
   </div>
 </template>
 
@@ -115,6 +115,30 @@ function handleStorageChange(event: StorageEvent) {
     // 这里你可以根据变化更新组件的状态
   }
   //处理逻辑补充
+  const roomState = Room.getRoomState(roomName); //获取信息
+  console.log('localStorage 变化',roomState);
+  if(playerMiddle.value.name ==='Alice')
+  {
+    if(roomState.players.length == 2)
+    {
+      playerRight.value.name =  roomState.players[1].name;
+    }
+    if(roomState.players.length == 3)
+    {
+      playerLeft.value.name =  roomState.players[2].name;
+    }
+  }
+  if(playerMiddle.value.name ==='Bob')
+  {
+    if(roomState.players.length == 2)
+    {
+      playerLeft.value.name =  roomState.players[1].name;
+    }
+    if(roomState.players.length == 3)
+    {
+      playerRight.value.name =  roomState.players[2].name;
+    }
+  }
 }
 
 onMounted(() => {
@@ -123,19 +147,17 @@ onMounted(() => {
 
     const roomState = Room.getRoomState(roomName);
     console.log(roomState.players);
-    let count: number = 0;
-    for (let i = roomState.players.length - 1; i >= 0; i--) {
-      count++;
-      if (count === 1) {
-        playerMiddle.value.name = roomState.players[i].name;
-      }
-      if (count === 2) {
-        playerLeft.value.name = roomState.players[i].name;
-      }
-      if (count === 3) {
-        playerRight.value.name = roomState.players[i].name;
-      }
+    playerMiddle.value.name = roomState.players[roomState.players.length - 1].name;
+    if(roomState.players[roomState.players.length - 1].name === 'Bob')
+    {
+      playerLeft.value.name = 'Alice';
     }
+    if(roomState.players[roomState.players.length - 1].name === 'Carol')
+    {
+      playerRight.value.name = 'Alice';
+      playerLeft.value.name = 'Bob';
+    }
+    
   }
 });
 
