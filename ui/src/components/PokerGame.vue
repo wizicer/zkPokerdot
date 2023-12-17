@@ -2,7 +2,7 @@
   <div class="poker-ganme">
     <div class="table">
       <!-- 房间名字 -->
-      <p class="room-name">房间名:{{roomName}}</p>
+      <p class="room-name">Room Name:{{ roomName }}</p>
       <!-- 顶部三张牌 -->
       <div class="top-table">
         <el-card shadow="hover" :body-style="{ padding: '0px' }">
@@ -18,7 +18,7 @@
       <!-- 玩家手牌 -->
       <div class="player-pokers">
         <el-card shadow="hover" :body-style="{ padding: '0px' }" class="player-card"
-          v-for="(poker, index) in player1.hands" :key="poker.id" :style="{ left: index * 20 + 'px' }"
+          v-for="(poker, index) in playerMiddle.hands" :key="poker.id" :style="{ left: index * 20 + 'px' }"
           :class="{ 'is-selected': poker.isSelected }">
           <img :src="`/src/images/${poker.img}.png`" class="image" :style="{ width: '120px', height: 'auto' }"
             @click="selectCard(poker)" />
@@ -43,49 +43,59 @@
     <!-- 叫地主和不叫的按钮 -->
     <div class="btn-group">
       <div class="ui-tip" v-show="gamePrepared">
-        <el-button type="primary" @click="prepareGame">准备</el-button>
+        <el-button type="primary" @click="prepareGame">Prepare</el-button>
       </div>
       <div class="ui-tip" v-show="!gameStarted">
-        <el-button type="success" @click="callGame">叫地主</el-button>
-        <el-button type="info" @click="skipCallGame">不叫</el-button>
+        <el-button type="success" @click="callGame">Call</el-button>
+        <el-button type="info" @click="skipCallGame">skipCall</el-button>
       </div>
       <div class="ui-tip" v-show="!gamePlayed">
-        <el-button type="primary" @click="playCards">出牌</el-button>
-        <el-button type="primary" @click="passTurn">过</el-button>
+        <el-button type="primary" @click="playCards">Play</el-button>
+        <el-button type="primary" @click="passTurn">Pass</el-button>
       </div>
     </div>
   </div>
   <div class="player-list">
-    <el-avatar class="player-middle" v-show="!gamePrepared"> Alice </el-avatar>
-    <el-avatar class="player-left" v-show="!gamePrepared"> Bob </el-avatar>
-    <el-avatar class="player-right" v-show="!gamePrepared"> Carol </el-avatar>
+    <el-avatar class="player-middle" v-show="!gamePrepared"> {{ playerMiddle.name }} </el-avatar>
+    <el-avatar class="player-left" v-show="!gamePrepared"> {{ playerLeft.name }} </el-avatar>
+    <el-avatar class="player-right" v-show="!gamePrepared"> {{ playerRight.name }} </el-avatar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 //import PokerCard from './PokerCard.vue';
 import POKERS from '../constant/poker';
 import type { PokerCard } from '../constant/poker';
+import type { Player, RoomState } from '../constant/roomState';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
+import { Room } from '../constant/roomState';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
 const gamePlayed = ref(true);//已经玩了
 const route = useRoute();
-const roomName = route.query.roomName;
+const roomName = route.query.roomName as string;
+const local = ref(true)
 
-interface Player {
-  name: string,//名字
-  hands: PokerCard[],//手牌
-  isLandlord: boolean//地主
-}
-
-let player1: Ref<Player> = ref({
-  name: 'Alice',
+let playerMiddle: Ref<Player> = ref({
+  name: ' ',
   hands: [],
-  isLandlord: false
+  isLandlord: false,
+  isReady: false
+});
+let playerLeft: Ref<Player> = ref({
+  name: ' ',
+  hands: [],
+  isLandlord: false,
+  isReady: false
+});
+let playerRight: Ref<Player> = ref({
+  name: ' ',
+  hands: [],
+  isLandlord: false,
+  isReady: false
 });
 
 function getRandomCards(cards: PokerCard[], count: number): PokerCard[] {
@@ -97,13 +107,51 @@ function getRandomCards(cards: PokerCard[], count: number): PokerCard[] {
   return shuffled.slice(0, count);
 }
 
+// 当 localStorage 变化时调用的函数
+function handleStorageChange(event: StorageEvent) {
+  // 检查 event.key 和 event.newValue 来响应特定的变化
+  if (event.key === roomName) {
+    console.log('localStorage changed:', event.newValue);
+    // 这里你可以根据变化更新组件的状态
+  }
+  //处理逻辑补充
+}
+
+onMounted(() => {
+  if (local.value) {
+    window.addEventListener('storage', handleStorageChange);
+
+    const roomState = Room.getRoomState(roomName);
+    console.log(roomState.players);
+    let count: number = 0;
+    for (let i = roomState.players.length - 1; i >= 0; i--) {
+      count++;
+      if (count === 1) {
+        playerMiddle.value.name = roomState.players[i].name;
+      }
+      if (count === 2) {
+        playerLeft.value.name = roomState.players[i].name;
+      }
+      if (count === 3) {
+        playerRight.value.name = roomState.players[i].name;
+      }
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (local.value) {
+    window.removeEventListener('storage', handleStorageChange);
+  }
+});
+
 const prepareGame = () => {
   console.log("准备游戏");//准备游戏
   gamePrepared.value = false;
-  player1.value.hands = getRandomCards(POKERS, 17);
-  player1.value.hands.sort((a, b) => b.id - a.id);
-  console.log(player1.value.hands);
+  playerMiddle.value.hands = getRandomCards(POKERS, 17);
+  playerMiddle.value.hands.sort((a, b) => b.id - a.id);
   gameStarted.value = false;
+
 }
 const playCards = () => {
   console.log("出牌");//出牌

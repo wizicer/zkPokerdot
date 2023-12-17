@@ -63,6 +63,7 @@ import { ref, reactive, onMounted } from 'vue';
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp'
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { useRouter } from 'vue-router';
+import { Room } from '../constant/roomState';
 
 onMounted(async () => {
 
@@ -76,88 +77,92 @@ const createRoomform = reactive({
   publicKey: ''
 })
 
-
 const joinRoomform = reactive({
   roomName: '',
   publicKey: ''
 })
+const local = ref(true)
 
 const joinRoom = () => {
   console.log('加入房间');
   joinRoomVisible.value = true
 };
-const createRoom = async() => {
+const createRoom = async () => {
   console.log('创建房间');
   createRoomVisible.value = true
 };
-const createRoomConfirm = async() => {
+const createRoomConfirm = async () => {
   console.log('创建房间确认');
   createRoomVisible.value = false
+  Room.createGame(createRoomform.roomName);
   router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName } });
+  if (!local.value) {
+    // 激活与浏览器扩展的连接
+    const allInjected = await web3Enable('my cool dapp')
 
-   // 激活与浏览器扩展的连接
-  const allInjected = await web3Enable('my cool dapp')
+    // 获取所有通过Polkadot扩展注入的账户
+    const allAccounts = await web3Accounts()
+    console.log('allAccounts and allInjected', allAccounts, allInjected)
 
-  // 获取所有通过Polkadot扩展注入的账户
-  const allAccounts = await web3Accounts()
-  console.log('allAccounts and allInjected',allAccounts, allInjected)
+    // 选择第一个账户的地址作为发送者
+    const SENDER = allAccounts[0].address
 
-  // 选择第一个账户的地址作为发送者
-  const SENDER = allAccounts[0].address
+    // 为指定的地址找到一个注入器
+    const injector = await web3FromAddress(SENDER)
+    console.log('SENDER', SENDER)
+    // 连接到Polkadot节点
+    const wsProvider = new WsProvider('ws://192.168.32.223:9944')
+    // 创建一个与Polkadot区块链交互的API实例
+    const api = await ApiPromise.create({ provider: wsProvider })
+    console.log("api", api)
+    if (!api) {
+      throw new Error('Unable to create ApiRx instance')
+    }
 
-  // 为指定的地址找到一个注入器
-  const injector = await web3FromAddress(SENDER)
-  console.log('SENDER',SENDER)
-  // 连接到Polkadot节点
-  const wsProvider = new WsProvider('ws://192.168.32.223:9944')
-  // 创建一个与Polkadot区块链交互的API实例
-  const api = await ApiPromise.create({ provider: wsProvider })
-  console.log("api", api)
-  if (!api) {
-    throw new Error('Unable to create ApiRx instance')
+    //调用createGame方法
+    const tx = api.tx.zkPoker.createGame(createRoomform.roomName);
+    //这里会弹出弹窗
+    const result = await tx.signAndSend(SENDER, { signer: injector.signer });
+    console.log('result', result)
+    const ret = await api.query.zkPoker.game(createRoomform.roomName);
+    console.log('ret', ret)
   }
-
-  //调用createGame方法
-  const tx = api.tx.zkPoker.createGame(createRoomform.roomName);
-  //这里会弹出弹窗
-  const result = await tx.signAndSend(SENDER, { signer: injector.signer });
-  console.log('result', result)
-  const ret = await api.query.zkPoker.game(createRoomform.roomName);
-  console.log('ret', ret)
 }
 
-const joinRoomConfirm = async() => {
+const joinRoomConfirm = async () => {
   console.log('加入房间确认');
   joinRoomVisible.value = false
+  Room.joinGame(joinRoomform.roomName);
   router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName } });
+  if (!local.value) {
+    // 激活与浏览器扩展的连接
+    const allInjected = await web3Enable('my cool dapp')
 
-  // 激活与浏览器扩展的连接
-  const allInjected = await web3Enable('my cool dapp')
+    // 获取所有通过Polkadot扩展注入的账户
+    const allAccounts = await web3Accounts()
+    console.log('allAccounts and allInjected', allAccounts, allInjected)
 
-  // 获取所有通过Polkadot扩展注入的账户
-  const allAccounts = await web3Accounts()
-  console.log('allAccounts and allInjected',allAccounts, allInjected)
+    // 选择第一个账户的地址作为发送者
+    const SENDER = allAccounts[0].address
 
-  // 选择第一个账户的地址作为发送者
-  const SENDER = allAccounts[0].address
+    // 为指定的地址找到一个注入器
+    const injector = await web3FromAddress(SENDER)
+    console.log('SENDER', SENDER)
 
-  // 为指定的地址找到一个注入器
-  const injector = await web3FromAddress(SENDER)
-  console.log('SENDER',SENDER)
-  
-  const wsProvider = new WsProvider('ws://192.168.32.223:9944')
+    const wsProvider = new WsProvider('ws://192.168.32.223:9944')
 
-  // 创建一个与Polkadot区块链交互的API实例
-  const api = await ApiPromise.create({ provider: wsProvider })
-  console.log("api", api)
-  if (!api) {
-    throw new Error('Unable to create ApiRx instance')
+    // 创建一个与Polkadot区块链交互的API实例
+    const api = await ApiPromise.create({ provider: wsProvider })
+    console.log("api", api)
+    if (!api) {
+      throw new Error('Unable to create ApiRx instance')
+    }
+    //调用joinGame
+    const tx = await api.tx.zkPoker.joinGame(joinRoomform.roomName);
+    //这里会弹出弹窗
+    const result = await tx.signAndSend(SENDER, { signer: injector.signer });
+    console.log('result', result)
   }
-  //调用joinGame
-  const tx = await api.tx.zkPoker.joinGame(joinRoomform.roomName);
-  //这里会弹出弹窗
-  const result = await tx.signAndSend(SENDER, { signer: injector.signer });
-  console.log('result', result)
 }
 </script>
   
@@ -181,7 +186,8 @@ const joinRoomConfirm = async() => {
 
 .button-row {
   width: 100%;
-  max-width: 600px; /* 控制按钮行的最大宽度 */
+  max-width: 600px;
+  /* 控制按钮行的最大宽度 */
   text-align: center;
 }
 
@@ -197,7 +203,9 @@ const joinRoomConfirm = async() => {
 
 /* 调整按钮样式 */
 .el-button {
-  padding: 10px 20px; /* 增加按钮的填充 */
-  font-size: 1.2em; /* 增加字体大小 */
+  padding: 10px 20px;
+  /* 增加按钮的填充 */
+  font-size: 1.2em;
+  /* 增加字体大小 */
 }
 </style>
