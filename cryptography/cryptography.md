@@ -38,16 +38,6 @@ fn shuffle_and_remask<R: Rng>(
   * 生成玩家： `pub fn new<R: Rng>(rng: &mut R, pp: &CardParameters, name: &Vec<u8>) -> anyhow::Result<Self>`
   * 收到一张牌： `pub fn receive_card(&mut self, card: MaskedCard)`
   - [ ] 打出某张牌: `pub fn play_card(&mut self, card: MaskedCard)`(待修改)
-  * 私自看牌
-    ```rust
-    pub fn peek_at_card(
-        &mut self,
-        parameters: &CardParameters,
-        reveal_tokens: &mut Vec<(RevealToken, RevealProof, PublicKey)>,
-        card_mappings: &HashMap<Card, ClassicPlayingCard>,
-        card: &MaskedCard,
-    ) -> Result<(), anyhow::Error>
-    ```
   * 计算token，计算结果放在合约上存储
     ```rust
     pub fn compute_reveal_token<R: Rng>(
@@ -85,5 +75,26 @@ pub fn open_card(
     card: &MaskedCard,
 ) -> Result<ClassicPlayingCard, anyhow::Error>
 ```
-
+* 私自看牌，函数中需要验证unmask是否正确
+    ```rust
+    pub fn peek_at_card(
+        &mut self,
+        parameters: &CardParameters,
+        reveal_tokens: &mut Vec<(RevealToken, RevealProof, PublicKey)>,
+        card_mappings: &HashMap<Card, ClassicPlayingCard>,
+        card: &MaskedCard,
+    ) -> Result<(), anyhow::Error>
+    ```
+* unmask 函数
+  ```rust
+  fn unmask(
+        pp: &Self::Parameters,
+        decryption_key: &Vec<(
+            Self::RevealToken,
+            Self::ZKProofReveal,
+            Self::PlayerPublicKey,
+        )>,
+        masked_card: &Self::MaskedCard,
+    ) -> Result<Self::Card, CardProtocolError>
+  ```
 - [ ] 对玩家打出的牌进行验证，证明这张牌属于自己 
