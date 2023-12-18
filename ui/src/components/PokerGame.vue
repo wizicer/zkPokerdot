@@ -5,14 +5,8 @@
       <p class="room-name">Room Name:{{ roomName }}</p>
       <!-- 顶部三张牌 -->
       <div class="top-table">
-        <el-card shadow="hover" :body-style="{ padding: '0px' }">
-          <img src="../images/cardback.png" class="image" />
-        </el-card>
-        <el-card shadow="hover" :body-style="{ padding: '0px' }">
-          <img shadow="hover" src="../images/cardback.png" class="image" />
-        </el-card>
-        <el-card shadow="hover" :body-style="{ padding: '0px' }">
-          <img src="../images/cardback.png" class="image" />
+        <el-card shadow="hover" :body-style="{ padding: '0px' }" v-for="(card, index) in topThree" :key="index">
+          <img :src="`/src/images/${card.img}.png`" class="top-three" />
         </el-card>
       </div>
       <!-- 玩家手牌 -->
@@ -49,7 +43,7 @@
         <el-button type="success" @click="callGame">Call</el-button>
         <el-button type="info" @click="skipCallGame">skipCall</el-button>
       </div>
-      <div class="ui-tip" v-show="!gamePlayed">
+      <div class="ui-tip" v-show="!gamePlayed && isTurn">
         <el-button type="primary" @click="playCards">Play</el-button>
         <el-button type="primary" @click="passTurn">Pass</el-button>
       </div>
@@ -59,11 +53,22 @@
     <el-avatar class="player-middle" v-show="playerMiddle.name !== ' '"> {{ playerMiddle.name }} </el-avatar>
     <el-avatar class="player-left" v-show="playerLeft.name !== ' '"> {{ playerLeft.name }} </el-avatar>
     <el-avatar class="player-right" v-show="playerRight.name !== ' '"> {{ playerRight.name }} </el-avatar>
+    <div class="played-cards">
+      <img v-for="(card, index) in playedCards" :src="`/src/images/${card.img}.png`" class="played-card" :key="index" />
+    </div>
+    <div class="played-cards-left">
+      <img v-for="(card, index) in playedCardsLeft" :src="`/src/images/${card.img}.png`" class="played-card"
+        :key="index" />
+    </div>
+    <div class="played-cards-right">
+      <img v-for="(card, index) in playedCardsRight" :src="`/src/images/${card.img}.png`" class="played-card"
+        :key="index" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted,computed  } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 //import PokerCard from './PokerCard.vue';
 import type { PokerCard } from '../constant/poker';
 import type { Player, RoomState } from '../constant/roomState';
@@ -79,36 +84,67 @@ const route = useRoute();
 const roomName = route.query.roomName as string;
 const local = ref(true)
 
+//顶部三张牌
+let topThree: Ref<PokerCard[]> = ref([{
+  id: 1,
+  suit: ' ',
+  rank: ' ',
+  img: 'cardback',
+  isSelected: false
+},
+{
+  id: 1,
+  suit: ' ',
+  rank: ' ',
+  img: 'cardback',
+  isSelected: false
+},
+{
+  id: 1,
+  suit: ' ',
+  rank: ' ',
+  img: 'cardback',
+  isSelected: false
+},
+]
+);
+// 打出的牌
+let playedCards: Ref<PokerCard[]> = ref([]);
+//左侧显示牌
+let playedCardsLeft: Ref<PokerCard[]> = ref([]);
+//右侧显示牌
+let playedCardsRight: Ref<PokerCard[]> = ref([]);
+//玩家显示
 let playerMiddle: Ref<Player> = ref({
   name: ' ',
   hands: [],
   isLandlord: false,
-  isReady: false
+  isReady: false,
+  hitedHands: []
 });
 let playerLeft: Ref<Player> = ref({
   name: ' ',
   hands: [],
   isLandlord: false,
-  isReady: false
+  isReady: false,
+  hitedHands: []
 });
 let playerRight: Ref<Player> = ref({
   name: ' ',
   hands: [],
   isLandlord: false,
-  isReady: false
+  isReady: false,
+  hitedHands: []
 });
-const currentPlayerIndex = ref(0);
+const currentPlayerIndex = ref(-1);
 const isTurn = computed(() => {
-  if(currentPlayerIndex.value === 1 && playerMiddle.value.name === 'Alice')
-  {
+  if (currentPlayerIndex.value % 3 === 0 && playerMiddle.value.name === 'Alice') {
     return true;
   }
-  if(currentPlayerIndex.value === 2 && playerMiddle.value.name === 'Bob')
-  {
+  if (currentPlayerIndex.value % 3 === 1 && playerMiddle.value.name === 'Bob') {
     return true;
   }
-  if(currentPlayerIndex.value === 3 && playerMiddle.value.name === 'Carol')
-  {
+  if (currentPlayerIndex.value % 3 === 2 && playerMiddle.value.name === 'Carol') {
     return true;
   }
   return false;
@@ -140,21 +176,23 @@ function handleStorageChange(event: StorageEvent) {
     }
   }
   //是否要判断游戏开始，考虑一下
-  if(roomState.roomState === 'inProgress')//游戏开始 更新牌组
+  if (roomState.roomState === 'inProgress' || roomState.roomState === 'called')//游戏开始 更新牌组
   {
-    
-    if(playerMiddle.value.name === 'Alice')
-    {
+    if (playerMiddle.value.name === 'Alice') {
       playerMiddle.value.hands = roomState.players[0].hands;
     }
-    if(playerMiddle.value.name === 'Bob')
-    {
+    if (playerMiddle.value.name === 'Bob') {
       playerMiddle.value.hands = roomState.players[1].hands;
     }
-    if(playerMiddle.value.name === 'Carol')
-    {
+    if (playerMiddle.value.name === 'Carol') {
       playerMiddle.value.hands = roomState.players[2].hands;
     }
+    if (roomState.roomState === 'called') { topThree.value = roomState.remainingCards; }
+    playedCardsLeft.value = roomState.players.find(p => p.name === playerLeft.value.name)?.hitedHands ?? [];
+    playedCardsRight.value = roomState.players.find(p => p.name === playerRight.value.name)?.hitedHands ?? [];
+    currentPlayerIndex.value = roomState.currentPlayerIndex;
+    gamePlayed.value = false;
+    gameStarted.value = true;
   }
 }
 
@@ -184,27 +222,23 @@ onUnmounted(() => {
 const prepareGame = () => {
   console.log("准备游戏");//准备游戏
   gamePrepared.value = false;
-  //playerMiddle.value.hands.sort((a, b) => b.id - a.id);
   gameStarted.value = false;
-  Room.updatePlayerStatus(roomName,playerMiddle.value.name,true);
-  if(Room.areThreePlayersReady(roomName) === true)//判断三个玩家都已经准备
+  Room.updatePlayerStatus(roomName, playerMiddle.value.name, true);
+  if (Room.areThreePlayersReady(roomName) === true)//判断三个玩家都已经准备
   {
-    Room.setCurrentPlayerIndex(roomName,1);//设置应该哪个玩家出牌
-    currentPlayerIndex.value = 1;
-    Room.setRoomState(roomName,"inProgress");//设置房间状态进行中
+    currentPlayerIndex.value = 0;
+    Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);//设置应该哪个玩家出牌
+    Room.setRoomState(roomName, "inProgress");//设置房间状态进行中
     const { playersCards, remainingCards } = dealCards();//获取玩家牌和顶部牌
-    Room.distributeCards(roomName,playersCards,remainingCards);//分给localstroge
+    Room.distributeCards(roomName, playersCards, remainingCards);//分给localstroge
     const roomState = Room.getRoomState(roomName);
-    if(playerMiddle.value.name === 'Alice')
-    {
+    if (playerMiddle.value.name === 'Alice') {
       playerMiddle.value.hands = roomState.players[0].hands;
     }
-    if(playerMiddle.value.name === 'Bob')
-    {
+    if (playerMiddle.value.name === 'Bob') {
       playerMiddle.value.hands = roomState.players[1].hands;
     }
-    if(playerMiddle.value.name === 'Carol')
-    {
+    if (playerMiddle.value.name === 'Carol') {
       playerMiddle.value.hands = roomState.players[2].hands;
     }
     console.log(roomState);
@@ -212,14 +246,35 @@ const prepareGame = () => {
 }
 const playCards = () => {
   console.log("出牌");//出牌
+  const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
+  // 筛选出未选择的牌
+  const remainingCards = playerMiddle.value.hands.filter(card => !card.isSelected);
+  // 更新玩家手牌
+  playerMiddle.value.hands = remainingCards;
+  // 更新 localStorage 中的游戏状态
+  Room.updatePlayerStatus(roomName, playerMiddle.value.name, undefined, true, remainingCards);
+  Room.setHitedHands(roomName, playerMiddle.value.name, selectedCards);
+  playedCards.value = selectedCards;
+  currentPlayerIndex.value += 1;
+  Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
 }
 const passTurn = () => {
   console.log("过");//过
+  playedCards.value = [];
+  Room.setHitedHands(roomName, playerMiddle.value.name, []);//清空显示
+  currentPlayerIndex.value += 1;
+  Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
 }
 const callGame = () => {
   console.log("叫地主");//叫地主
   gamePlayed.value = false;
   gameStarted.value = true;
+  const roomState = Room.getRoomState(roomName);
+  Room.updatePlayerStatus(roomName, playerMiddle.value.name, undefined, true, playerMiddle.value.hands.concat(roomState.remainingCards));
+  Room.setRoomState(roomName, "called");
+  topThree.value = roomState.remainingCards;
+  playerMiddle.value.hands = Room.getRoomState(roomName).players[0].hands;
+  console.log(roomState);
 }
 const skipCallGame = () => {
   console.log("不叫");//不叫
@@ -264,6 +319,11 @@ const selectCard = (poker: PokerCard) => {
       left: 50%;
       transform: translate(-50%, 0);
       display: flex;
+
+      .top-three {
+        width: 68px;
+        height: 88px;
+      }
     }
 
     .player-pokers {
@@ -283,6 +343,7 @@ const selectCard = (poker: PokerCard) => {
         top: -2vw;
       }
     }
+
 
     .hands-card-left {
       position: absolute;
@@ -328,6 +389,33 @@ const selectCard = (poker: PokerCard) => {
     left: 35vw;
     top: 90vh;
   }
+
+  .played-cards {
+    position: absolute;
+    top: 50vh;
+    left: 45vw;
+    display: flex;
+    width: 68px;
+    height: 88px;
+  }
+
+  .played-cards-left {
+    position: absolute;
+    top: 30vh;
+    left: 30vw;
+    display: flex;
+    width: 68px;
+    height: 88px;
+  }
+
+  .played-cards-right {
+    position: absolute;
+    top: 30vh;
+    left: 60vw;
+    display: flex;
+    width: 68px;
+    height: 88px;
+  }
 }
 
 .btn-group {
@@ -336,5 +424,4 @@ const selectCard = (poker: PokerCard) => {
   left: 50%;
   top: 58%;
   z-index: 30;
-}
-</style>
+}</style>

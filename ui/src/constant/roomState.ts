@@ -5,12 +5,13 @@ export interface Player {
   hands: PokerCard[];
   isLandlord: boolean;
   isReady: boolean;
+  hitedHands:PokerCard[];
 }
 
 export interface RoomState {
   players: Player[];
   currentPlayerIndex: number;
-  roomState: 'waiting' | 'inProgress' | 'finished';
+  roomState: 'waiting' | 'inProgress'| 'called' | 'finished';
   roomName: string;
   remainingCards: PokerCard[];
 }
@@ -20,12 +21,12 @@ export class Room {
   public static createGame(roomName: string): void {
     const roomState: RoomState = {
       players: [
-        { name: 'Alice', hands: [], isLandlord: false, isReady: false }
+        { name: 'Alice', hands: [], isLandlord: false, isReady: false,hitedHands:[] }
       ],
       currentPlayerIndex: 0,
       roomState: 'waiting',
       roomName: roomName,
-      remainingCards:[]
+      remainingCards: []
     };
     localStorage.setItem(roomName, JSON.stringify(roomState));
   }
@@ -37,7 +38,7 @@ export class Room {
     isReady?: boolean,
     isLandlord?: boolean,
     hands?: PokerCard[]
-  ): void {
+  ){
     const roomState = Room.getRoomState(roomName);
     const player = roomState.players.find(p => p.name === playerName);
     if (player) {
@@ -48,11 +49,24 @@ export class Room {
         player.isLandlord = isLandlord;
       }
       if (hands) {
-        player.hands = hands;
+        player.hands = hands.sort((a,b)=>b.id-a.id);
       }
 
       localStorage.setItem(roomName, JSON.stringify(roomState));
     }
+  }
+  //设置打的手牌
+  public static setHitedHands(
+    roomName: string,
+    playerName: string,
+    hitedHands:PokerCard[])
+  {
+    const roomState = Room.getRoomState(roomName);
+    const player = roomState.players.find(p => p.name === playerName);
+    if (player) {
+      player.hitedHands = hitedHands;
+    }
+    localStorage.setItem(roomName, JSON.stringify(roomState));
   }
 
   //获取整个游戏状态
@@ -65,10 +79,10 @@ export class Room {
     const playNum = roomState.players.length;
     if (playNum < 3) {
       if (playNum === 1) {
-        roomState.players.push({ name: 'Bob', hands: [], isLandlord: false, isReady: false });
+        roomState.players.push({ name: 'Bob', hands: [], isLandlord: false, isReady: false ,hitedHands:[]});
       }
       if (playNum === 2) {
-        roomState.players.push({ name: 'Carol', hands: [], isLandlord: false, isReady: false });
+        roomState.players.push({ name: 'Carol', hands: [], isLandlord: false, isReady: false ,hitedHands:[]});
       }
       localStorage.setItem(roomName, JSON.stringify(roomState));
     }
@@ -88,14 +102,14 @@ export class Room {
   }
 
   // 更新房间状态
-  public static setRoomState(roomName: string, newState: 'waiting' | 'inProgress' | 'finished'): void {
+  public static setRoomState(roomName: string, newState: 'waiting' | 'inProgress' | 'called' |'finished'): void {
     const roomState = Room.getRoomState(roomName);
     roomState.roomState = newState;
     localStorage.setItem(roomName, JSON.stringify(roomState));
   }
 
   // 分发牌给玩家
-  public static distributeCards(roomName: string,playersCards:PokerCard[][],remainingCards:PokerCard[]): void {
+  public static distributeCards(roomName: string, playersCards: PokerCard[][], remainingCards: PokerCard[]): void {
     const roomState = Room.getRoomState(roomName);
     if (roomState.players.length === 3) {
       // 将牌分发给玩家

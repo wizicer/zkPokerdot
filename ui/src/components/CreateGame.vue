@@ -24,9 +24,9 @@
       <el-form-item label="Room Name" :label-width="formLabelWidth">
         <el-input v-model="createRoomform.roomName" autocomplete="off" />
       </el-form-item>
-      <el-form-item label="Public Key" :label-width="formLabelWidth">
+      <!-- <el-form-item label="Public Key" :label-width="formLabelWidth">
         <el-input v-model="createRoomform.publicKey" autocomplete="off" />
-      </el-form-item>
+      </el-form-item> -->
     </el-form>
     <template #footer>
       <span class="dialog-footer">
@@ -42,9 +42,9 @@
       <el-form-item label="Room Name" :label-width="formLabelWidth">
         <el-input v-model="joinRoomform.roomName" autocomplete="off" />
       </el-form-item>
-      <el-form-item label="Public Key" :label-width="formLabelWidth">
+      <!-- <el-form-item label="Public Key" :label-width="formLabelWidth">
         <el-input v-model="joinRoomform.publicKey" autocomplete="off" />
-      </el-form-item>
+      </el-form-item> -->
     </el-form>
     <template #footer>
       <span class="dialog-footer">

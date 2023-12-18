@@ -1,9 +1,9 @@
-type Suit = "spades" | "hearts" | "diamonds" | "clubs" | "red" | "black";
-type Rank = "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A" | "JOKER";
+// type Suit = "spades" | "hearts" | "diamonds" | "clubs" | "red" | "black";
+// type Rank = "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A" | "JOKER";
 export interface PokerCard {
   id: number;
   suit: string;
-  rank: Rank;
+  rank: string;
   img: string;
   isSelected: boolean;
 }
@@ -393,7 +393,7 @@ const POKERS: PokerCard[] = [
 function createPokerCard(id: number): PokerCard {
   let suit: string;
   let img: string;
-  const rank:Rank = "2";
+  const rank:string = "2";
   const isSelected = false; // 默认值，可以根据需要调整
   // 示例逻辑：根据id确定suit和sortKey
   // 这里的逻辑应该根据你的具体需求来定制
