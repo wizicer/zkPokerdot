@@ -45,7 +45,7 @@
       <div class="ui-tip" v-show="gamePrepared">
         <el-button type="primary" @click="prepareGame">Prepare</el-button>
       </div>
-      <div class="ui-tip" v-show="!gameStarted">
+      <div class="ui-tip" v-show="!gameStarted && isTurn">
         <el-button type="success" @click="callGame">Call</el-button>
         <el-button type="info" @click="skipCallGame">skipCall</el-button>
       </div>
@@ -63,14 +63,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted,computed  } from 'vue';
 //import PokerCard from './PokerCard.vue';
-import POKERS from '../constant/poker';
 import type { PokerCard } from '../constant/poker';
 import type { Player, RoomState } from '../constant/roomState';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
+import { dealCards } from '../constant/poker';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
@@ -97,16 +97,22 @@ let playerRight: Ref<Player> = ref({
   isLandlord: false,
   isReady: false
 });
-
-function getRandomCards(cards: PokerCard[], count: number): PokerCard[] {
-  let shuffled = cards.slice();
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+const currentPlayerIndex = ref(0);
+const isTurn = computed(() => {
+  if(currentPlayerIndex.value === 1 && playerMiddle.value.name === 'Alice')
+  {
+    return true;
   }
-  return shuffled.slice(0, count);
-}
-
+  if(currentPlayerIndex.value === 2 && playerMiddle.value.name === 'Bob')
+  {
+    return true;
+  }
+  if(currentPlayerIndex.value === 3 && playerMiddle.value.name === 'Carol')
+  {
+    return true;
+  }
+  return false;
+});
 // 当 localStorage 变化时调用的函数
 function handleStorageChange(event: StorageEvent) {
   // 检查 event.key 和 event.newValue 来响应特定的变化
@@ -114,29 +120,40 @@ function handleStorageChange(event: StorageEvent) {
     console.log('localStorage changed:', event.newValue);
     // 这里你可以根据变化更新组件的状态
   }
-  //处理逻辑补充
+  //处理人员加入逻辑
   const roomState = Room.getRoomState(roomName); //获取信息
-  console.log('localStorage 变化',roomState);
-  if(playerMiddle.value.name ==='Alice')
-  {
-    if(roomState.players.length == 2)
-    {
-      playerRight.value.name =  roomState.players[1].name;
+  console.log('localStorage 变化', roomState);
+  if (playerMiddle.value.name === 'Alice' && roomState.roomState === 'waiting') {
+    if (roomState.players.length == 2) {
+      playerRight.value.name = roomState.players[1].name;
     }
-    if(roomState.players.length == 3)
-    {
-      playerLeft.value.name =  roomState.players[2].name;
+    if (roomState.players.length == 3) {
+      playerLeft.value.name = roomState.players[2].name;
     }
   }
-  if(playerMiddle.value.name ==='Bob')
-  {
-    if(roomState.players.length == 2)
-    {
-      playerLeft.value.name =  roomState.players[1].name;
+  if (playerMiddle.value.name === 'Bob' && roomState.roomState === 'waiting') {
+    if (roomState.players.length == 2) {
+      playerLeft.value.name = roomState.players[1].name;
     }
-    if(roomState.players.length == 3)
+    if (roomState.players.length == 3 && roomState.roomState === 'waiting') {
+      playerRight.value.name = roomState.players[2].name;
+    }
+  }
+  //是否要判断游戏开始，考虑一下
+  if(roomState.roomState === 'inProgress')//游戏开始 更新牌组
+  {
+    
+    if(playerMiddle.value.name === 'Alice')
     {
-      playerRight.value.name =  roomState.players[2].name;
+      playerMiddle.value.hands = roomState.players[0].hands;
+    }
+    if(playerMiddle.value.name === 'Bob')
+    {
+      playerMiddle.value.hands = roomState.players[1].hands;
+    }
+    if(playerMiddle.value.name === 'Carol')
+    {
+      playerMiddle.value.hands = roomState.players[2].hands;
     }
   }
 }
@@ -144,20 +161,16 @@ function handleStorageChange(event: StorageEvent) {
 onMounted(() => {
   if (local.value) {
     window.addEventListener('storage', handleStorageChange);
-
     const roomState = Room.getRoomState(roomName);
     console.log(roomState.players);
     playerMiddle.value.name = roomState.players[roomState.players.length - 1].name;
-    if(roomState.players[roomState.players.length - 1].name === 'Bob')
-    {
+    if (roomState.players[roomState.players.length - 1].name === 'Bob') {
       playerLeft.value.name = 'Alice';
     }
-    if(roomState.players[roomState.players.length - 1].name === 'Carol')
-    {
+    if (roomState.players[roomState.players.length - 1].name === 'Carol') {
       playerRight.value.name = 'Alice';
       playerLeft.value.name = 'Bob';
     }
-    
   }
 });
 
@@ -167,13 +180,35 @@ onUnmounted(() => {
   }
 });
 
+
 const prepareGame = () => {
   console.log("准备游戏");//准备游戏
   gamePrepared.value = false;
-  playerMiddle.value.hands = getRandomCards(POKERS, 17);
-  playerMiddle.value.hands.sort((a, b) => b.id - a.id);
+  //playerMiddle.value.hands.sort((a, b) => b.id - a.id);
   gameStarted.value = false;
-
+  Room.updatePlayerStatus(roomName,playerMiddle.value.name,true);
+  if(Room.areThreePlayersReady(roomName) === true)//判断三个玩家都已经准备
+  {
+    Room.setCurrentPlayerIndex(roomName,1);//设置应该哪个玩家出牌
+    currentPlayerIndex.value = 1;
+    Room.setRoomState(roomName,"inProgress");//设置房间状态进行中
+    const { playersCards, remainingCards } = dealCards();//获取玩家牌和顶部牌
+    Room.distributeCards(roomName,playersCards,remainingCards);//分给localstroge
+    const roomState = Room.getRoomState(roomName);
+    if(playerMiddle.value.name === 'Alice')
+    {
+      playerMiddle.value.hands = roomState.players[0].hands;
+    }
+    if(playerMiddle.value.name === 'Bob')
+    {
+      playerMiddle.value.hands = roomState.players[1].hands;
+    }
+    if(playerMiddle.value.name === 'Carol')
+    {
+      playerMiddle.value.hands = roomState.players[2].hands;
+    }
+    console.log(roomState);
+  }
 }
 const playCards = () => {
   console.log("出牌");//出牌

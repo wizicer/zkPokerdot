@@ -412,4 +412,28 @@ function createPokerCard(id: number): PokerCard {
   return { id, suit, rank,img, isSelected };
 }
 
+// 洗牌函数
+function shuffleDeck(deck: PokerCard[]): PokerCard[] {
+  const shuffledDeck = [...deck]; // 创建牌组的副本以避免直接修改原数组
+  for (let i = shuffledDeck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+  }
+  return shuffledDeck;
+}
+
+// 发牌函数
+export function dealCards(): { playersCards: PokerCard[][], remainingCards: PokerCard[] } {
+  const shuffledDeck = shuffleDeck(POKERS);
+  const playersCards = [
+    shuffledDeck.slice(0, 17),
+    shuffledDeck.slice(17, 34),
+    shuffledDeck.slice(34, 51)
+  ];
+  const remainingCards = shuffledDeck.slice(51, 54);
+
+  return { playersCards, remainingCards };
+}
+
+
 export default POKERS;
