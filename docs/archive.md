@@ -125,6 +125,10 @@ sequenceDiagram
     c->>p: unmask
 
     alt 
+        Note over a, c: Everyone peeks at their own cards secretly.
+    end
+
+    alt 
         a->>p: call
         Note over a, c: Can also be called by Bob/Carol
     end
@@ -132,6 +136,12 @@ sequenceDiagram
     a->>p: unmask
     b->>p: unmask
     c->>p: unmask
+
+    alt 
+        Note over a, c: Everyone can see the landlord cards.
+    end
+
+
 
     loop Turn
         a->>p: play
