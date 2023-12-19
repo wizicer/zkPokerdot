@@ -76,6 +76,7 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
+import { initializeWeb3 } from '../constant/initializeWeb3';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
@@ -219,8 +220,9 @@ onUnmounted(() => {
 });
 
 
-const prepareGame = () => {
+const prepareGame = async() => {
   console.log("准备游戏");//准备游戏
+  await initializeWeb3();
   gamePrepared.value = false;
   gameStarted.value = false;
   Room.updatePlayerStatus(roomName, playerMiddle.value.name, true);
@@ -244,8 +246,9 @@ const prepareGame = () => {
     console.log(roomState);
   }
 }
-const playCards = () => {
+const playCards = async() => {
   console.log("出牌");//出牌
+  await initializeWeb3();
   const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
   // 筛选出未选择的牌
   const remainingCards = playerMiddle.value.hands.filter(card => !card.isSelected);
@@ -258,15 +261,17 @@ const playCards = () => {
   currentPlayerIndex.value += 1;
   Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
 }
-const passTurn = () => {
+const passTurn = async() => {
   console.log("过");//过
+  await initializeWeb3();
   playedCards.value = [];
   Room.setHitedHands(roomName, playerMiddle.value.name, []);//清空显示
   currentPlayerIndex.value += 1;
   Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
 }
-const callGame = () => {
+const callGame = async() => {
   console.log("叫地主");//叫地主
+  await initializeWeb3();
   gamePlayed.value = false;
   gameStarted.value = true;
   const roomState = Room.getRoomState(roomName);

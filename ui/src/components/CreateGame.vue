@@ -64,6 +64,7 @@ import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-d
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { useRouter } from 'vue-router';
 import { Room } from '../constant/roomState';
+import { initializeWeb3 } from '../constant/initializeWeb3';
 
 onMounted(async () => {
 
@@ -83,16 +84,16 @@ const joinRoomform = reactive({
 })
 const local = ref(true)
 
-const joinRoom = () => {
+const joinRoom = async() => {
   console.log('加入房间');
   joinRoomVisible.value = true
 };
 const createRoom = async () => {
-  console.log('创建房间');
   createRoomVisible.value = true
 };
 const createRoomConfirm = async () => {
   console.log('创建房间确认');
+  await initializeWeb3();
   createRoomVisible.value = false
   Room.createGame(createRoomform.roomName);
   router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName } });
@@ -131,6 +132,7 @@ const createRoomConfirm = async () => {
 
 const joinRoomConfirm = async () => {
   console.log('加入房间确认');
+  await initializeWeb3();
   joinRoomVisible.value = false
   Room.joinGame(joinRoomform.roomName);
   router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName } });
