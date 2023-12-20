@@ -71,12 +71,12 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 //import PokerCard from './PokerCard.vue';
 import type { PokerCard } from '../constant/poker';
-import type { Player, RoomState } from '../constant/roomState';
+import type { Player } from '../constant/roomState';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3 } from '../constant/initializeWeb3';
+import { initializeWeb3,loading } from '../constant/initializeWeb3';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
@@ -222,6 +222,7 @@ onUnmounted(() => {
 
 const prepareGame = async() => {
   console.log("准备游戏");//准备游戏
+  await loading(9000,'Preparing to shuffle');
   await initializeWeb3();
   gamePrepared.value = false;
   gameStarted.value = false;
@@ -248,6 +249,7 @@ const prepareGame = async() => {
 }
 const playCards = async() => {
   console.log("出牌");//出牌
+  await loading(1500,'Playing');
   await initializeWeb3();
   const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
   // 筛选出未选择的牌

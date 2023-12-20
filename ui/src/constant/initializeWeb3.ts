@@ -1,5 +1,6 @@
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { ApiPromise, WsProvider } from '@polkadot/api';
+import { ElLoading } from 'element-plus'
 
 export async function initializeWeb3() {
     try {
@@ -35,4 +36,17 @@ export async function initializeWeb3() {
         console.error(error);
         throw error; 
     }
+}
+export const delay = async(ms:number)=>{
+    return new Promise(resolve=> {setTimeout(resolve,ms)});
+}
+
+export const loading = async(ms:number,text:string) =>{
+    const loading = ElLoading.service({
+        lock: true,
+        text: text,
+        background: 'rgba(0, 0, 0, 0.7)',
+      })
+    await delay(ms);
+    loading.close();
 }
