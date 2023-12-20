@@ -4,6 +4,9 @@
     "setup:ptau": "bash ./scripts/gentesttau.sh",
     "build:decrypt": "bash ./scripts/compile.sh src/decrypt",
     "build:shuffle": "bash ./scripts/compile.sh src/shuffle_encrypt",
+    "build:all": "npm run build:decrypt && npm run build:shuffle && npm run copy:decrypt && npm run copy:shuffle",
+    "copy:decrypt": "bash ./scripts/cpcircuit.sh src/decrypt",
+    "copy:shuffle": "bash ./scripts/cpcircuit.sh src/shuffle_encrypt",
     "test": "jest"
   },
   "devDependencies": {
