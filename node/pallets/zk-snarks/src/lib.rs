@@ -61,10 +61,11 @@ pub mod pallet {
 		common::prepare_verification_key,
 		deserialization::{deserialize_public_inputs, Proof, VKey},
 		verify::{
-			prepare_public_inputs, verify, G1UncompressedBytes, G2UncompressedBytes, GProof,
-			VerificationKey, SUPPORTED_CURVE, SUPPORTED_PROTOCOL,
+			verify, G1UncompressedBytes, G2UncompressedBytes, GProof, VerificationKey,
+			SUPPORTED_CURVE, SUPPORTED_PROTOCOL,
 		},
 	};
+	use bls12_381::Scalar;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -151,28 +152,28 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Store a verification key.
 		#[pallet::weight(<T as Config>::WeightInfo::setup_verification_benchmark(vec_vk.len()))]
-		pub fn setup_verification(
-			_origin: OriginFor<T>,
-			pub_input: Vec<u8>,
-			vec_vk: Vec<u8>,
-		) -> DispatchResult {
-			let inputs = store_public_inputs::<T>(pub_input)?;
-			let vk = store_verification_key::<T>(vec_vk)?;
-			ensure!(vk.public_inputs_len == inputs.len() as u8, Error::<T>::PublicInputsMismatch);
+		pub fn setup_verification(_origin: OriginFor<T>, vec_vk: Vec<u8>) -> DispatchResult {
+			let _vk = store_verification_key::<T>(vec_vk)?;
 			Self::deposit_event(Event::<T>::VerificationSetupCompleted);
 			Ok(())
 		}
 
 		/// Verify a proof.
 		#[pallet::weight(<T as Config>::WeightInfo::verify_benchmark(vec_proof.len()))]
-		pub fn verify(origin: OriginFor<T>, vec_proof: Vec<u8>) -> DispatchResult {
+		pub fn verify(
+			origin: OriginFor<T>,
+			pub_input: Vec<u8>,
+			vec_proof: Vec<u8>,
+		) -> DispatchResult {
+			let inputs = store_public_inputs::<T>(pub_input)?;
 			let proof = store_proof::<T>(vec_proof)?;
 			let vk = get_verification_key::<T>()?;
-			let inputs = get_public_inputs::<T>()?;
+			// ensure!(vk.public_inputs_len == inputs.len() as u8,
+			// Error::<T>::PublicInputsMismatch); let inputs = get_public_inputs::<T>()?;
 			let sender = ensure_signed(origin)?;
 			Self::deposit_event(Event::<T>::VerificationProofSet);
 
-			match verify(vk, proof, prepare_public_inputs(inputs)) {
+			match verify(vk, proof, inputs) {
 				Ok(true) => {
 					Self::deposit_event(Event::<T>::VerificationSuccess { who: sender });
 					Ok(())
@@ -186,7 +187,8 @@ pub mod pallet {
 		}
 	}
 
-	fn get_public_inputs<T: Config>() -> Result<Vec<u64>, sp_runtime::DispatchError> {
+	#[allow(dead_code)]
+	fn get_public_inputs<T: Config>() -> Result<Vec<Scalar>, sp_runtime::DispatchError> {
 		let public_inputs = PublicInputStorage::<T>::get();
 		let deserialized_public_inputs = deserialize_public_inputs(public_inputs.as_slice())
 			.map_err(|_| Error::<T>::MalformedPublicInputs)?;
@@ -195,7 +197,7 @@ pub mod pallet {
 
 	fn store_public_inputs<T: Config>(
 		pub_input: Vec<u8>,
-	) -> Result<Vec<u64>, sp_runtime::DispatchError> {
+	) -> Result<Vec<Scalar>, sp_runtime::DispatchError> {
 		let public_inputs: PublicInputsDef<T> =
 			pub_input.try_into().map_err(|_| Error::<T>::TooLongPublicInputs)?;
 		let deserialized_public_inputs = deserialize_public_inputs(public_inputs.as_slice())
