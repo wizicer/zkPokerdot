@@ -24,7 +24,13 @@ if [ ! -f $CIRCUIT_NAME.r1cs ]; then
     exit
 fi
 
-snarkjs r1cs export json $CIRCUIT_NAME.r1cs $CIRCUIT_NAME.r1cs.json
+( set -x;
+
+    snarkjs r1cs export json $CIRCUIT_NAME.r1cs $CIRCUIT_NAME.r1cs.json
+    snarkjs $PROTOCOL setup $CIRCUIT_NAME.r1cs $TAU_PATH ${CIRCUIT_NAME}_final.zkey
+    # snarkjs zkey verify $CIRCUIT_NAME.r1cs $TAU_PATH ${CIRCUIT_NAME}_final.zkey
+    snarkjs zkey export verificationkey ${CIRCUIT_NAME}_final.zkey verification_key.json
+)
 
 cd ${CIRCUIT_NAME}_js
 node generate_witness.js $CIRCUIT_NAME.wasm ../../${CIRCUIT_NAME}_input.json ../witness.wtns
@@ -34,9 +40,6 @@ cd ..
 
 ( set -x;
 
-    snarkjs $PROTOCOL setup $CIRCUIT_NAME.r1cs $TAU_PATH ${CIRCUIT_NAME}_final.zkey
-    # snarkjs zkey verify $CIRCUIT_NAME.r1cs $TAU_PATH ${CIRCUIT_NAME}_final.zkey
-    snarkjs zkey export verificationkey ${CIRCUIT_NAME}_final.zkey verification_key.json
     snarkjs $PROTOCOL prove ${CIRCUIT_NAME}_final.zkey witness.wtns proof.json public.json
     # snarkjs zkey export solidityverifier ${CIRCUIT_NAME}_final.zkey verifier.sol
     # snarkjs zkey export soliditycalldata public.json proof.json
