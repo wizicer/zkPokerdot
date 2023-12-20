@@ -19,7 +19,10 @@ TODO
 
 - VueJs 3: https://vuejs.org/guide/introduction.html
 - Substrate Node: https://github.com/substrate-developer-hub/substrate-node-template
-- Cryptography: https://github.com/geometryresearch/mental-poker
+- Cryptography: ~~https://github.com/geometryresearch/mental-poker~~
+- bls12_381 verifier: https://github.com/bright/zk-snarks-with-substrate
+- bellman verifier: https://github.com/DoraFactory/snarkjs-bellman-adapter
+- shuffling circuit: https://github.com/Poseidon-ZKP/zkShuffle
 
 ## 黑客松期间计划完成的事项
 
@@ -31,8 +34,6 @@ TODO
 - [ ] 传递解密信息 `fn unmask(id: uint, unmask: uint[])`
 - [ ] 登记叫地主 `fn call(id: uint, pub_key: String)`
 - [ ] 提交出牌数据 `fn play(id: uint, pub_key: String, cards: uint[])`
-
-_说明：涉及密码学信息传递部分还需要再斟酌一下，可能会有改变_
 
 **功能：节点+合约**
 
