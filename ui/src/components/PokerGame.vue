@@ -69,7 +69,7 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3,loading } from '../constant/initializeWeb3';
+import { initializeWeb3, loading } from '../constant/initializeWeb3';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
@@ -110,7 +110,7 @@ let playedCardsLeft: Ref<PokerCard[]> = ref([]);
 let playedCardsRight: Ref<PokerCard[]> = ref([]);
 //玩家显示
 let playerMiddle: Ref<Player> = ref({
-  name: ' ',
+  name: route.query.playerName as string,
   hands: [],
   isLandlord: false,
   isReady: false,
@@ -195,13 +195,31 @@ onMounted(() => {
     window.addEventListener('storage', handleStorageChange);
     const roomState = Room.getRoomState(roomName);
     console.log(roomState.players);
-    playerMiddle.value.name = roomState.players[roomState.players.length - 1].name;
-    if (roomState.players[roomState.players.length - 1].name === 'Bob') {
-      playerLeft.value.name = 'Alice';
+    let startIndex = -1;
+    for (let i = 0; i < roomState.players.length; i++) {
+      if (playerMiddle.value.name === roomState.players[i].name) {
+        startIndex = i;
+        break;
+      }
     }
-    if (roomState.players[roomState.players.length - 1].name === 'Carol') {
-      playerRight.value.name = 'Alice';
-      playerLeft.value.name = 'Bob';
+    if (startIndex !== -1) {
+      for (let j = 0; j < roomState.players.length; j++) {
+        if(j === 0)
+        {
+          continue;
+        }
+        let currentIndex = (startIndex + j) % roomState.players.length;
+        if(j === 1)
+        {
+          playerRight.value.name = roomState.players[currentIndex].name;
+        }
+        if(j === 2)
+        {
+          playerLeft.value.name = roomState.players[currentIndex].name;
+        }
+      }
+    } else {
+      console.log('Player not found');
     }
   }
 });
@@ -213,9 +231,9 @@ onUnmounted(() => {
 });
 
 
-const prepareGame = async() => {
+const prepareGame = async () => {
   console.log("准备游戏");//准备游戏
-  await loading(9000,'Preparing to shuffle');
+  await loading(9000, 'Preparing to shuffle');
   await initializeWeb3();
   gamePrepared.value = false;
   gameStarted.value = false;
@@ -240,9 +258,9 @@ const prepareGame = async() => {
     console.log(roomState);
   }
 }
-const playCards = async() => {
+const playCards = async () => {
   console.log("出牌");//出牌
-  await loading(1500,'Playing');
+  await loading(1500, 'Playing');
   await initializeWeb3();
   const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
   // 筛选出未选择的牌
@@ -256,7 +274,7 @@ const playCards = async() => {
   currentPlayerIndex.value += 1;
   Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
 }
-const passTurn = async() => {
+const passTurn = async () => {
   console.log("过");//过
   await initializeWeb3();
   playedCards.value = [];
@@ -264,7 +282,7 @@ const passTurn = async() => {
   currentPlayerIndex.value += 1;
   Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
 }
-const callGame = async() => {
+const callGame = async () => {
   console.log("叫地主");//叫地主
   await initializeWeb3();
   gamePlayed.value = false;
@@ -278,9 +296,6 @@ const callGame = async() => {
 }
 const skipCallGame = () => {
   console.log("不叫");//不叫
-}
-const selectCard = (poker: PokerCard) => {
-  poker.isSelected = !poker.isSelected
 }
 </script>
 
@@ -408,4 +423,5 @@ const selectCard = (poker: PokerCard) => {
   left: 50%;
   top: 58%;
   z-index: 30;
-}</style>
+}
+</style>

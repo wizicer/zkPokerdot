@@ -96,7 +96,7 @@ const createRoomConfirm = async () => {
   await initializeWeb3();
   createRoomVisible.value = false
   Room.createGame(createRoomform.roomName);
-  router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName } });
+  router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName,playerName: Room.getRoomState(createRoomform.roomName).players[0].name} });
   if (!local.value) {
     // 激活与浏览器扩展的连接
     const allInjected = await web3Enable('my cool dapp')
@@ -135,7 +135,8 @@ const joinRoomConfirm = async () => {
   await initializeWeb3();
   joinRoomVisible.value = false
   Room.joinGame(joinRoomform.roomName);
-  router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName } });
+  const roomState = Room.getRoomState(joinRoomform.roomName);
+  router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName,playerName: roomState.players[roomState.players.length - 1].name } });
   if (!local.value) {
     // 激活与浏览器扩展的连接
     const allInjected = await web3Enable('my cool dapp')
