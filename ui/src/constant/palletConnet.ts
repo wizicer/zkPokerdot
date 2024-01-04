@@ -64,8 +64,9 @@ export async function createGame(roomName: string) {
             console.log(`Transaction included at blockHash ${status.asInBlock}`, result);
             api.query.zkPoker.game(roomName)
                 .then(gameId => {
-                    console.log('Game ID:', gameId);
-                    console.log('Game ID human:', gameId.toHuman());
+                    console.log('Gameid:', gameId);
+                    console.log('Gameid human:', gameId.toHuman());
+                    console.log('Gameid toJSON:', gameId.toJSON());
                     result();//取消订阅
                 })
                 .catch(console.error);

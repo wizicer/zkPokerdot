@@ -69,7 +69,7 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3, loading,localRun} from '../constant/palletConnet';
+import { initializeWeb3, loading,localRun,initPokerGame} from '../constant/palletConnet';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
@@ -223,7 +223,7 @@ onMounted(() => {
   }
   else{
     console.log('正常运行');
-    
+    initPokerGame();
   }
 });
 
