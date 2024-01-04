@@ -64,7 +64,7 @@ import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-d
 import { ApiPromise, WsProvider } from '@polkadot/api'
 import { useRouter } from 'vue-router';
 import { Room } from '../constant/roomState';
-import { initializeWeb3 } from '../constant/initializeWeb3';
+import { initializeWeb3, localRun,createGame } from '../constant/palletConnet';
 
 onMounted(async () => {
 
@@ -82,9 +82,8 @@ const joinRoomform = reactive({
   roomName: '',
   publicKey: ''
 })
-const local = ref(true)
 
-const joinRoom = async() => {
+const joinRoom = async () => {
   console.log('加入房间');
   joinRoomVisible.value = true
 };
@@ -93,51 +92,27 @@ const createRoom = async () => {
 };
 const createRoomConfirm = async () => {
   console.log('创建房间确认');
-  await initializeWeb3();
-  createRoomVisible.value = false
-  Room.createGame(createRoomform.roomName);
-  router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName,playerName: Room.getRoomState(createRoomform.roomName).players[0].name} });
-  if (!local.value) {
-    // 激活与浏览器扩展的连接
-    const allInjected = await web3Enable('my cool dapp')
-
-    // 获取所有通过Polkadot扩展注入的账户
-    const allAccounts = await web3Accounts()
-    console.log('allAccounts and allInjected', allAccounts, allInjected)
-
-    // 选择第一个账户的地址作为发送者
-    const SENDER = allAccounts[0].address
-
-    // 为指定的地址找到一个注入器
-    const injector = await web3FromAddress(SENDER)
-    console.log('SENDER', SENDER)
-    // 连接到Polkadot节点
-    const wsProvider = new WsProvider('ws://192.168.32.223:9944')
-    // 创建一个与Polkadot区块链交互的API实例
-    const api = await ApiPromise.create({ provider: wsProvider })
-    console.log("api", api)
-    if (!api) {
-      throw new Error('Unable to create ApiRx instance')
-    }
-
-    //调用createGame方法
-    const tx = api.tx.zkPoker.createGame(createRoomform.roomName);
-    //这里会弹出弹窗
-    const result = await tx.signAndSend(SENDER, { signer: injector.signer });
-    console.log('result', result)
-    const ret = await api.query.zkPoker.game(createRoomform.roomName);
-    console.log('ret', ret)
+  if (localRun) {
+    await initializeWeb3();
+    createRoomVisible.value = false;
+    Room.createGame(createRoomform.roomName);
+    router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName, playerName: Room.getRoomState(createRoomform.roomName).players[0].name } });
+  }
+  else {
+    await createGame(createRoomform.roomName);
   }
 }
 
 const joinRoomConfirm = async () => {
   console.log('加入房间确认');
-  await initializeWeb3();
-  joinRoomVisible.value = false
-  Room.joinGame(joinRoomform.roomName);
-  const roomState = Room.getRoomState(joinRoomform.roomName);
-  router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName,playerName: roomState.players[roomState.players.length - 1].name } });
-  if (!local.value) {
+  if (localRun) {
+    await initializeWeb3();
+    joinRoomVisible.value = false
+    Room.joinGame(joinRoomform.roomName);
+    const roomState = Room.getRoomState(joinRoomform.roomName);
+    router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName, playerName: roomState.players[roomState.players.length - 1].name } });
+  }
+  else {
     // 激活与浏览器扩展的连接
     const allInjected = await web3Enable('my cool dapp')
 
@@ -152,7 +127,7 @@ const joinRoomConfirm = async () => {
     const injector = await web3FromAddress(SENDER)
     console.log('SENDER', SENDER)
 
-    const wsProvider = new WsProvider('ws://192.168.32.223:9944')
+    const wsProvider = new WsProvider('ws://127.0.0.1:9944')
 
     // 创建一个与Polkadot区块链交互的API实例
     const api = await ApiPromise.create({ provider: wsProvider })
@@ -164,8 +139,12 @@ const joinRoomConfirm = async () => {
     const tx = await api.tx.zkPoker.joinGame(joinRoomform.roomName);
     //这里会弹出弹窗
     const result = await tx.signAndSend(SENDER, { signer: injector.signer });
-    console.log('result', result)
+    const result2 = await api.query.zkPoker.gameState(createRoomform.roomName);
+    console.log('gameState', result2.toHuman());
+    console.log('gameState', result2);
+
   }
+  //router.push({ path: '/pokergame', query: { roomName: joinRoomform.roomName,playerName: roomState.players[roomState.players.length - 1].name } });
 }
 </script>
   

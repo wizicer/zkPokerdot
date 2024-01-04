@@ -69,14 +69,13 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3, loading } from '../constant/initializeWeb3';
+import { initializeWeb3, loading,localRun} from '../constant/palletConnet';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
 const gamePlayed = ref(true);//已经玩了
 const route = useRoute();
 const roomName = route.query.roomName as string;
-const local = ref(true)
 
 //顶部三张牌
 let topThree: Ref<PokerCard[]> = ref([{
@@ -191,7 +190,7 @@ function handleStorageChange(event: StorageEvent) {
 }
 
 onMounted(() => {
-  if (local.value) {
+  if (localRun) {
     window.addEventListener('storage', handleStorageChange);
     const roomState = Room.getRoomState(roomName);
     console.log(roomState.players);
@@ -222,10 +221,14 @@ onMounted(() => {
       console.log('Player not found');
     }
   }
+  else{
+    console.log('正常运行');
+    
+  }
 });
 
 onUnmounted(() => {
-  if (local.value) {
+  if (localRun) {
     window.removeEventListener('storage', handleStorageChange);
   }
 });
