@@ -2,37 +2,41 @@ import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-d
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { ElLoading } from 'element-plus'
 
-export async function initializeWeb3() {
+export const localRun: boolean = false;
+const wsProviderUrl = 'ws://127.0.0.1:9944';
 
+async function setupWeb3() {
     const allInjected = await web3Enable('my cool dapp');
     if (!allInjected.length) {
         throw new Error('No injected sources available');
     }
 
     const allAccounts = await web3Accounts();
-    console.log(allAccounts, allInjected);
     if (!allAccounts.length) {
         throw new Error('No accounts available');
     }
 
     const SENDER = allAccounts[0].address;
-
     const injector = await web3FromAddress(SENDER);
-    console.log(injector);
+    return { SENDER, injector };
+}
 
-    const wsProvider = new WsProvider('ws://127.0.0.1:9944');
+async function setupApi() {
+    const wsProvider = new WsProvider(wsProviderUrl);
     const api = await ApiPromise.create({ provider: wsProvider });
-    console.log("api", api);
-
     if (!api) {
         throw new Error('Unable to create ApiRx instance');
     }
+    return api;
+}
+
+export async function initializeWeb3() {
+    const { SENDER, injector } = await setupWeb3();
+    const api = await setupApi();
     const tx = api.tx.templateModule.doSomething(99);
     const result = await tx.signAndSend(SENDER, { signer: injector.signer });
     console.log('result', result);
-
     return result;
-
 }
 export const delay = async (ms: number) => {
     return new Promise(resolve => { setTimeout(resolve, ms) });
@@ -47,31 +51,11 @@ export const loading = async (ms: number, text: string) => {
     await delay(ms);
     loading.close();
 }
-export const localRun: boolean = false;
+
 
 export async function createGame(roomName: string) {
-    // 激活与浏览器扩展的连接
-    const allInjected = await web3Enable('my cool dapp')
-
-    // 获取所有通过Polkadot扩展注入的账户
-    const allAccounts = await web3Accounts()
-    console.log('allAccounts and allInjected', allAccounts, allInjected)
-
-    // 选择第一个账户的地址作为发送者
-    const SENDER = allAccounts[0].address
-
-    // 为指定的地址找到一个注入器
-    const injector = await web3FromAddress(SENDER)
-    console.log('SENDER', SENDER)
-    // 连接到Polkadot节点
-    const wsProvider = new WsProvider('ws://127.0.0.1:9944')
-    // 创建一个与Polkadot区块链交互的API实例
-    const api = await ApiPromise.create({ provider: wsProvider })
-    console.log("api", api)
-    if (!api) {
-        throw new Error('Unable to create ApiRx instance')
-    }
-
+    const { SENDER, injector } = await setupWeb3();
+    const api = await setupApi();
     //调用createGame方法
     const tx = api.tx.zkPoker.createGame(roomName);
     //这里会弹出弹窗
@@ -89,29 +73,7 @@ export async function createGame(roomName: string) {
     });
 }
 export async function initPokerGame() {
-    const allInjected = await web3Enable('my cool dapp');
-    if (!allInjected.length) {
-        throw new Error('No injected sources available');
-    }
-
-    const allAccounts = await web3Accounts();
-    console.log(allAccounts, allInjected);
-    if (!allAccounts.length) {
-        throw new Error('No accounts available');
-    }
-
-    const SENDER = allAccounts[0].address;
-
-    const injector = await web3FromAddress(SENDER);
-    console.log(injector);
-
-    const wsProvider = new WsProvider('ws://127.0.0.1:9944');
-    const api = await ApiPromise.create({ provider: wsProvider });
-    console.log("api", api);
-
-    if (!api) {
-        throw new Error('Unable to create ApiRx instance');
-    }
+    const api = await setupApi();
     // 订阅系统事件
     api.query.system.events((events: any) => {
         events.forEach((record: any) => {
