@@ -4,7 +4,7 @@ import { ElLoading } from 'element-plus'
 
 export const localRun: boolean = false;
 const wsProviderUrl = 'ws://127.0.0.1:9944';
-
+//拆分初始化函数
 async function setupWeb3() {
     const allInjected = await web3Enable('my cool dapp');
     if (!allInjected.length) {
@@ -20,7 +20,7 @@ async function setupWeb3() {
     const injector = await web3FromAddress(SENDER);
     return { SENDER, injector };
 }
-
+//拆分初始化函数
 async function setupApi() {
     const wsProvider = new WsProvider(wsProviderUrl);
     const api = await ApiPromise.create({ provider: wsProvider });
@@ -53,24 +53,28 @@ export const loading = async (ms: number, text: string) => {
 }
 
 
-export async function createGame(roomName: string) {
-    const { SENDER, injector } = await setupWeb3();
-    const api = await setupApi();
-    //调用createGame方法
-    const tx = api.tx.zkPoker.createGame(roomName);
-    //这里会弹出弹窗
-    const result = await tx.signAndSend(SENDER, { signer: injector.signer }, ({ status }) => {
-        if (status.isInBlock) {
-            console.log(`Transaction included at blockHash ${status.asInBlock}`, result);
-            api.query.zkPoker.game(roomName)
-                .then(gameId => {
-                    console.log('Gameid:', gameId);
-                    console.log('Gameid human:', gameId.toHuman());
-                    console.log('Gameid toJSON:', gameId.toJSON());
-                    result();//取消订阅
-                })
-                .catch(console.error);
-        }
+export async function createGame(roomName: string): Promise<number> {
+    return new Promise<number>(async (resolve, reject) => {
+        const { SENDER, injector } = await setupWeb3();
+        const api = await setupApi();
+        const tx = api.tx.zkPoker.createGame(roomName);
+        let ret = -1;
+        const result = await tx.signAndSend(SENDER, { signer: injector.signer }, ({ status }) => {
+            if (status.isInBlock) {
+                console.log(`Transaction included at blockHash ${status.asInBlock}`, result);
+                api.query.zkPoker.game(roomName)
+                    .then(gameId => {
+                        console.log('Gameid:', gameId);
+                        console.log('Gameid human:', gameId.toHuman());
+                        console.log('Gameid toJSON:', gameId.toJSON());
+                        ret = gameId.toJSON() as number;
+                        resolve(ret); // 返回gameId
+                    })
+                    .catch(error => {
+                        reject(error); // 如果出现错误，返回错误信息
+                    });
+            }
+        });
     });
 }
 export async function initPokerGame() {

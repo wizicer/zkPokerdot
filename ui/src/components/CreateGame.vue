@@ -99,7 +99,8 @@ const createRoomConfirm = async () => {
     router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName, playerName: Room.getRoomState(createRoomform.roomName).players[0].name } });
   }
   else {
-    await createGame(createRoomform.roomName);
+    const gameId =  await createGame(createRoomform.roomName);
+    router.push({ path: '/pokergame', query: { roomName: createRoomform.roomName, gameId: gameId } });
   }
 }
 
