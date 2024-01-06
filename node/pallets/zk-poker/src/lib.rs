@@ -232,6 +232,20 @@ pub mod pallet {
 			Player2Game::<T>::insert(&sender, &game_id);
 			// 游戏状态设为未开始
 			GameState::<T>::insert(&game_id, 0);
+			//创建初始玩家
+			// 获取当前 key 对应的 Vec
+			let accounts = GamePlayers::<T>::get(&game_id);
+			// 检查玩家是否已存在于列表中
+			if accounts.contains(&sender) {
+				return Err(Error::<T>::PlayerAlreadyJoined.into())
+			}
+
+			// 向 vector 中添加一个新的 AccountID
+			let mut new_accounts = accounts.clone();
+			new_accounts.push(sender.clone());
+
+			// 存入新的 Vector
+			GamePlayers::<T>::insert(&game_id, new_accounts);
 			Self::deposit_event(Event::GameCreated(game_id));
 			Ok(().into())
 		}
