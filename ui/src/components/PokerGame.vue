@@ -69,13 +69,14 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3, loading,localRun,initPokerGame} from '../constant/palletConnet';
+import { initializeWeb3, loading,localRun,initPokerGame,queryPlayer} from '../services/palletConnet';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
 const gamePlayed = ref(true);//已经玩了
 const route = useRoute();
 const roomName = route.query.roomName as string;
+const gameId = route.query.gameId as string;
 
 //顶部三张牌
 let topThree: Ref<PokerCard[]> = ref([{
@@ -189,7 +190,7 @@ function handleStorageChange(event: StorageEvent) {
   }
 }
 
-onMounted(() => {
+onMounted(async() => {
   if (localRun) {
     window.addEventListener('storage', handleStorageChange);
     const roomState = Room.getRoomState(roomName);
@@ -224,6 +225,10 @@ onMounted(() => {
   else{
     console.log('正常运行');
     initPokerGame();
+    const players = await queryPlayer(gameId);
+    console.log('players:',players);
+    console.log('players human:',players.toHuman());
+    console.log('players human[0]:',players.toHuman()[0]);
   }
 });
 
@@ -427,4 +432,4 @@ const skipCallGame = () => {
   top: 58%;
   z-index: 30;
 }
-</style>
+</style>../services/palletConnet

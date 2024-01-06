@@ -52,30 +52,60 @@ export const loading = async (ms: number, text: string) => {
     loading.close();
 }
 
-
+//创建游戏
 export async function createGame(roomName: string): Promise<number> {
-    return new Promise<number>(async (resolve, reject) => {
-        const { SENDER, injector } = await setupWeb3();
-        const api = await setupApi();
-        const tx = api.tx.zkPoker.createGame(roomName);
-        let ret = -1;
-        const result = await tx.signAndSend(SENDER, { signer: injector.signer }, ({ status }) => {
+    const { SENDER, injector } = await setupWeb3();
+    const api = await setupApi();
+    const tx = api.tx.zkPoker.createGame(roomName);
+    let ret = -1;
+
+    return new Promise<number>((resolve, reject) => {
+        tx.signAndSend(SENDER, { signer: injector.signer }, async ({ status }) => {
             if (status.isInBlock) {
-                console.log(`Transaction included at blockHash ${status.asInBlock}`, result);
-                api.query.zkPoker.game(roomName)
-                    .then(gameId => {
-                        console.log('Gameid:', gameId);
-                        console.log('Gameid human:', gameId.toHuman());
-                        console.log('Gameid toJSON:', gameId.toJSON());
-                        ret = gameId.toJSON() as number;
-                        resolve(ret); // 返回gameId
-                    })
-                    .catch(error => {
-                        reject(error); // 如果出现错误，返回错误信息
-                    });
+                console.log(`Transaction included at blockHash ${status.asInBlock}`);
+                try {
+                    const gameId = await api.query.zkPoker.game(roomName);
+                    console.log('Gameid:', gameId);
+                    console.log('Gameid human:', gameId.toHuman());
+                    console.log('Gameid toJSON:', gameId.toJSON());
+                    ret = gameId.toJSON() as number;
+                    resolve(ret);
+                } catch (error) {
+                    reject(error);
+                }
             }
         });
     });
+}
+//加入游戏
+export async function joinGame(roomName: string): Promise<number> {
+    const { SENDER, injector } = await setupWeb3();
+    const api = await setupApi();
+    const tx = api.tx.zkPoker.joinGame(roomName);
+    let ret = -1;
+
+    return new Promise<number>((resolve, reject) => {
+        tx.signAndSend(SENDER, { signer: injector.signer }, async ({ status }) => {
+            if (status.isInBlock) {
+                console.log(`Transaction included at blockHash ${status.asInBlock}`);
+                try {
+                    const gameId = await api.query.zkPoker.game(roomName);
+                    console.log('Gameid:', gameId);
+                    console.log('Gameid human:', gameId.toHuman());
+                    console.log('Gameid toJSON:', gameId.toJSON());
+                    ret = gameId.toJSON() as number;
+                    resolve(ret);
+                } catch (error) {
+                    reject(error);
+                }
+            }
+        });
+    });
+}
+//查询玩家
+export const queryPlayer = async (gameId: string): Promise<T> => {
+    const api = await setupApi();
+    return await api.query.zkPoker.gamePlayers(gameId);
 }
 export async function initPokerGame() {
     const api = await setupApi();
