@@ -5,7 +5,7 @@ import { ElLoading } from 'element-plus'
 export const localRun: boolean = false;
 const wsProviderUrl = 'ws://127.0.0.1:9944';
 //拆分初始化函数
-async function setupWeb3() {
+export async function setupWeb3() {
     const allInjected = await web3Enable('my cool dapp');
     if (!allInjected.length) {
         throw new Error('No injected sources available');
@@ -21,7 +21,7 @@ async function setupWeb3() {
     return { SENDER, injector };
 }
 //拆分初始化函数
-async function setupApi() {
+export async function setupApi() {
     const wsProvider = new WsProvider(wsProviderUrl);
     const api = await ApiPromise.create({ provider: wsProvider });
     if (!api) {
@@ -102,14 +102,73 @@ export async function joinGame(roomName: string): Promise<number> {
         });
     });
 }
+//准备游戏
+export async function readyGame(): Promise<T> {
+    const { SENDER, injector } = await setupWeb3();
+    const api = await setupApi();
+    const tx = api.tx.zkPoker.shuffle();
+    const ret = -1;
+
+    return new Promise<T>((resolve, reject) => {
+        tx.signAndSend(SENDER, { signer: injector.signer }, async ({ status }) => {
+            if (status.isInBlock) {
+                console.log(`Transaction included at blockHash ${status.asInBlock}`);
+                try {
+                    resolve(ret);
+                } catch (error) {
+                    reject(error);
+                }
+            }
+        });
+    });
+}
 //查询玩家
 export const queryPlayer = async (gameId: string): Promise<T> => {
     const api = await setupApi();
     return await api.query.zkPoker.gamePlayers(gameId);
 }
-export async function initPokerGame() {
-    const api = await setupApi();
-    // 订阅系统事件
+//循环设置名字
+async function setName(gameId:string,playerMiddle:any,playerLeft:any,playerRight:any) {
+    const players = await queryPlayer(gameId);
+    console.log('players:',players);
+    console.log('players human:',players.toHuman());
+    console.log('players human[0]:',players.toHuman()[0]);
+    const allInjected = await web3Enable('my cool dapp');
+    if (!allInjected.length) {
+        throw new Error('No injected sources available');
+    }
+    const allAccounts = await web3Accounts();
+    playerMiddle.value.name = allAccounts[0].meta.name as string;
+    console.log(allAccounts[0].meta.name);
+    let startIndex = -1;
+    for (let i = 0; i < players.toHuman().length; i++) {
+      if (allAccounts[0].address === players.toHuman()[i]) {
+        startIndex = i;
+        break;
+      }
+    }
+    if (startIndex !== -1) {
+      for (let j = 0; j < players.toHuman().length; j++) {
+        if(j === 0)
+        {
+          continue;
+        }
+        const currentIndex = (startIndex + j) % players.toHuman().length;
+        if(j === 1)
+        {
+          playerRight.value.name = players.toHuman()[currentIndex];
+        }
+        if(j === 2)
+        {
+          playerLeft.value.name = players.toHuman()[currentIndex];
+        }
+      }
+    } else {
+      console.log('Player not found');
+    }
+}
+//事件查询的回调函数
+async function handleEvent(gameId:string,api: any,playerMiddle:any,playerLeft:any,playerRight:any) {
     api.query.system.events((events: any) => {
         events.forEach((record: any) => {
             // 获取事件数据
@@ -124,7 +183,17 @@ export async function initPokerGame() {
                 event.data.forEach((data: any, index: any) => {
                     console.log(`\t${types[index].type}: ${data.toString()}`);
                 });
+                if(event.method === 'GamerJoined')
+                {
+                    setName(gameId,playerMiddle,playerLeft,playerRight);
+                }
             }
         });
     });
+}
+export async function initPokerGame(gameId:string,playerMiddle:any,playerLeft:any,playerRight:any) {
+    const api = await setupApi();
+    // 订阅系统事件
+    await handleEvent(gameId,api,playerMiddle,playerLeft,playerRight);
+    await setName(gameId,playerMiddle,playerLeft,playerRight);
 }

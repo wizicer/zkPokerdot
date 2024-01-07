@@ -63,13 +63,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import PlayerPokers from './PokerCard.vue';
+import { ElLoading } from 'element-plus';
 import type { PokerCard } from '../constant/poker';
 import type { Player } from '../constant/roomState';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3, loading,localRun,initPokerGame,queryPlayer} from '../services/palletConnet';
+import { initializeWeb3, loading, localRun, initPokerGame,readyGame } from '../services/palletConnet';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
@@ -190,7 +191,7 @@ function handleStorageChange(event: StorageEvent) {
   }
 }
 
-onMounted(async() => {
+onMounted(async () => {
   if (localRun) {
     window.addEventListener('storage', handleStorageChange);
     const roomState = Room.getRoomState(roomName);
@@ -204,17 +205,14 @@ onMounted(async() => {
     }
     if (startIndex !== -1) {
       for (let j = 0; j < roomState.players.length; j++) {
-        if(j === 0)
-        {
+        if (j === 0) {
           continue;
         }
         let currentIndex = (startIndex + j) % roomState.players.length;
-        if(j === 1)
-        {
+        if (j === 1) {
           playerRight.value.name = roomState.players[currentIndex].name;
         }
-        if(j === 2)
-        {
+        if (j === 2) {
           playerLeft.value.name = roomState.players[currentIndex].name;
         }
       }
@@ -222,13 +220,9 @@ onMounted(async() => {
       console.log('Player not found');
     }
   }
-  else{
+  else {
     console.log('正常运行');
-    initPokerGame();
-    const players = await queryPlayer(gameId);
-    console.log('players:',players);
-    console.log('players human:',players.toHuman());
-    console.log('players human[0]:',players.toHuman()[0]);
+    initPokerGame(gameId, playerMiddle, playerLeft, playerRight);
   }
 });
 
@@ -241,31 +235,39 @@ onUnmounted(() => {
 
 const prepareGame = async () => {
   console.log("准备游戏");//准备游戏
-  await loading(9000, 'Preparing to shuffle');
-  await initializeWeb3();
-  gamePrepared.value = false;
-  gameStarted.value = false;
-  Room.updatePlayerStatus(roomName, playerMiddle.value.name, true);
-  if (Room.areThreePlayersReady(roomName) === true)//判断三个玩家都已经准备
-  {
-    currentPlayerIndex.value = 0;
-    Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);//设置应该哪个玩家出牌
-    Room.setRoomState(roomName, "inProgress");//设置房间状态进行中
-    const { playersCards, remainingCards } = dealCards();//获取玩家牌和顶部牌
-    Room.distributeCards(roomName, playersCards, remainingCards);//分给localstroge
-    const roomState = Room.getRoomState(roomName);
-    if (playerMiddle.value.name === 'Alice') {
-      playerMiddle.value.hands = roomState.players[0].hands;
+  if (localRun) {
+    await loading(9000, 'Preparing to shuffle');
+    await initializeWeb3();
+    gamePrepared.value = false;
+    gameStarted.value = false;
+    Room.updatePlayerStatus(roomName, playerMiddle.value.name, true);
+    if (Room.areThreePlayersReady(roomName) === true)//判断三个玩家都已经准备
+    {
+      currentPlayerIndex.value = 0;
+      Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);//设置应该哪个玩家出牌
+      Room.setRoomState(roomName, "inProgress");//设置房间状态进行中
+      const { playersCards, remainingCards } = dealCards();//获取玩家牌和顶部牌
+      Room.distributeCards(roomName, playersCards, remainingCards);//分给localstroge
+      const roomState = Room.getRoomState(roomName);
+      if (playerMiddle.value.name === 'Alice') {
+        playerMiddle.value.hands = roomState.players[0].hands;
+      }
+      if (playerMiddle.value.name === 'Bob') {
+        playerMiddle.value.hands = roomState.players[1].hands;
+      }
+      if (playerMiddle.value.name === 'Carol') {
+        playerMiddle.value.hands = roomState.players[2].hands;
+      }
+      console.log(roomState);
     }
-    if (playerMiddle.value.name === 'Bob') {
-      playerMiddle.value.hands = roomState.players[1].hands;
-    }
-    if (playerMiddle.value.name === 'Carol') {
-      playerMiddle.value.hands = roomState.players[2].hands;
-    }
-    console.log(roomState);
+  }
+  else{
+    const loading = ElLoading.service({lock: true,text: 'preparing',background: 'rgba(0, 0, 0, 0.7)',})
+    await readyGame();
+    loading.close();
   }
 }
+
 const playCards = async () => {
   console.log("出牌");//出牌
   await loading(1500, 'Playing');
