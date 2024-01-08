@@ -263,13 +263,13 @@ const prepareGame = async () => {
   }
   else{
     const loading = ElLoading.service({lock: true,text: 'preparing',background: 'rgba(0, 0, 0, 0.7)',})
-    await readyGame();
+    await readyGame(gameId);
     loading.close();
   }
 }
 
 const playCards = async () => {
-  console.log("出牌");//出牌
+  console.log("出牌");
   await loading(1500, 'Playing');
   await initializeWeb3();
   const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);

@@ -7,6 +7,10 @@ export interface PokerCard {
   img: string;
   isSelected: boolean;
 }
+export const pokerNumber: number[] = [];
+for (let i = 1; i <= 54; i++) {
+  pokerNumber.push(i);
+}
 
 const POKERS: PokerCard[] = [
   {
@@ -414,6 +418,15 @@ function createPokerCard(id: number): PokerCard {
 
 // 洗牌函数
 function shuffleDeck(deck: PokerCard[]): PokerCard[] {
+  const shuffledDeck = [...deck]; // 创建牌组的副本以避免直接修改原数组
+  for (let i = shuffledDeck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledDeck[i], shuffledDeck[j]] = [shuffledDeck[j], shuffledDeck[i]];
+  }
+  return shuffledDeck;
+}
+//NUMBER型洗牌函数
+export function shuffleDeckNumber(deck: number[]): number[] {
   const shuffledDeck = [...deck]; // 创建牌组的副本以避免直接修改原数组
   for (let i = shuffledDeck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
