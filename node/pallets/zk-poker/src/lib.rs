@@ -82,6 +82,7 @@ pub mod pallet {
 		GameCreated(u32),
 		/// 玩家加入游戏
 		GamerJoined(u32),
+		PlayerAllPrepared,
 	}
 
 	#[pallet::error]
@@ -140,6 +141,26 @@ pub mod pallet {
 	#[pallet::getter(fn my_game_players)]
 	pub type GamePlayers<T: Config> =
 		StorageMap<_, Blake2_128Concat, u32, Vec<T::AccountId>, ValueQuery>;
+	
+	//gameId+sender 对照姓名
+	#[pallet::storage]
+	pub(super) type PlayerNames<T: Config> = StorageDoubleMap<
+    	_,
+    	Blake2_128Concat, u32,
+    	Blake2_128Concat, T::AccountId,
+    	Vec<u8>,
+    	ValueQuery
+	>;
+	//gameId+sender 对照 玩家状态  0 未准备， 1 准备
+	#[pallet::storage]
+	pub(super) type PlayerStatus<T: Config> = StorageDoubleMap<
+    	_,
+    	Blake2_128Concat, u32,
+    	Blake2_128Concat, T::AccountId,
+    	u32,
+    	ValueQuery
+	>;
+
 
 	/// 房间号对应洗完之后的牌
 	#[pallet::storage]
@@ -223,7 +244,7 @@ pub mod pallet {
 
 		// 创建房间
 		#[pallet::weight(0)]
-		pub fn create_game(origin: OriginFor<T>, room: u32) -> DispatchResultWithPostInfo {
+		pub fn create_game(origin: OriginFor<T>, room: u32,playername:Vec<u8>) -> DispatchResultWithPostInfo {
 			// Account calling this dispatchable.
 			let sender = ensure_signed(origin)?;
 			// 检查存储中是否已存在相同的seed
@@ -247,13 +268,14 @@ pub mod pallet {
 
 			// 存入新的 Vector
 			GamePlayers::<T>::insert(&game_id, new_accounts);
+			PlayerNames::<T>::insert(&game_id,sender,playername);
 			Self::deposit_event(Event::GameCreated(game_id));
 			Ok(().into())
 		}
 
 		// 加入游戏
 		#[pallet::weight(0)]
-		pub fn join_game(origin: OriginFor<T>, game_name: u32) -> DispatchResultWithPostInfo {
+		pub fn join_game(origin: OriginFor<T>, game_name: u32,playername:Vec<u8>) -> DispatchResultWithPostInfo {
 			// Account calling this dispatchable.
 			let gamer = ensure_signed(origin)?;
 			let game_id = Game::<T>::get(&game_name);
@@ -278,6 +300,7 @@ pub mod pallet {
 
 			// 存入新的 Vector
 			GamePlayers::<T>::insert(&game_id, new_accounts);
+			PlayerNames::<T>::insert(&game_id,&gamer,playername);
 			let num_players = accounts.len() as u32; // 玩家数量
 			Player2Game::<T>::insert(&gamer, &game_id);
 			Self::deposit_event(Event::GamerJoined(num_players));
@@ -287,32 +310,49 @@ pub mod pallet {
 
 		// 洗牌和发牌
 		#[pallet::weight(0)]
-		pub fn shuffle(origin: OriginFor<T>, cards: Vec<u32>) -> DispatchResultWithPostInfo {
+		pub fn shuffle(origin: OriginFor<T>, game_id: u32,cards: Vec<u32>) -> DispatchResultWithPostInfo {
 			let gamer = ensure_signed(origin)?;
-			let game_id = Player2Game::<T>::get(&gamer);
 			GameDecks::<T>::insert(&game_id, cards.clone());
-			// 按顺序发牌给三个玩家
-			let mut player1 = Vec::new();
-			let mut player2 = Vec::new();
-			let mut player3 = Vec::new();
-			let mut temp = cards.clone();
-
-			while !temp.is_empty() {
-				if let Some(card) = temp.pop() {
-					player1.push(card);
-				}
-				if let Some(card) = temp.pop() {
-					player2.push(card);
-				}
-				if let Some(card) = temp.pop() {
-					player3.push(card);
-				}
+			// 更新存储中的状态
+			PlayerStatus::<T>::insert(game_id, gamer, 1);
+			//判断是否三位玩家都准备
+			let mut count = 0;
+        	for _ in PlayerStatus::<T>::iter_prefix(game_id) {
+            	count += 1;
 			}
-			let accounts = GamePlayers::<T>::get(&game_id);
-			PlayerCards::<T>::insert(&accounts[0], player1);
-			PlayerCards::<T>::insert(&accounts[1], player2);
-			PlayerCards::<T>::insert(&accounts[2], player3);
+			if count == 3 {
+				// 如果找到3条数据则可以开始发牌
+				// 人数已满，游戏状态设为进行中
+				// 按顺序发牌给三个玩家
+				let mut player1_cards = Vec::new();
+				let mut player2_cards = Vec::new();
+				let mut player3_cards = Vec::new();
 
+				// 留下的三张底牌
+				let mut remaining_cards = Vec::new();
+
+				// 分发牌给每位玩家
+				for (index, &card) in cards.iter().enumerate() {
+					match index {
+						0..=16 => player1_cards.push(card),  // 第一位玩家的牌
+						17..=33 => player2_cards.push(card), // 第二位玩家的牌
+						34..=50 => player3_cards.push(card), // 第三位玩家的牌
+						_ => remaining_cards.push(card),     // 底牌
+					}
+				}
+
+				// 存储玩家的牌
+				let accounts = GamePlayers::<T>::get(&game_id);
+				PlayerCards::<T>::insert(&accounts[0], player1_cards);
+				PlayerCards::<T>::insert(&accounts[1], player2_cards);
+				PlayerCards::<T>::insert(&accounts[2], player3_cards);
+
+				// 存储底牌
+				BottomCards::<T>::insert(&game_id, remaining_cards);
+
+				Self::deposit_event(Event::PlayerAllPrepared);
+			}
+        	
 			Ok(().into())
 		}
 
