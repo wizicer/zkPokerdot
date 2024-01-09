@@ -82,7 +82,9 @@ pub mod pallet {
 		GameCreated(u32),
 		/// 玩家加入游戏
 		GamerJoined(u32),
+		/// 玩家全部准备
 		PlayerAllPrepared,
+		GameCurPlayerId(T::AccountId),
 	}
 
 	#[pallet::error]
@@ -119,6 +121,8 @@ pub mod pallet {
 		GamerEnough,
 		/// 请勿重复加入游戏
 		PlayerAlreadyJoined,
+		/// 游戏已经开始，不再洗牌
+		GameStarted,
 	}
 
 	/// Storing a public input.
@@ -182,7 +186,7 @@ pub mod pallet {
 	#[pallet::getter(fn my_game_leader)]
 	pub type GameLeader<T: Config> = StorageMap<_, Blake2_128Concat, u32, T::AccountId>;
 
-	/// 房间号对应的游戏状态0,1,2
+	/// 房间号对应的游戏状态0 创建房间,1 有人加入房间, 2 所有玩家准备 ，3游戏结束  
 	#[pallet::storage]
 	#[pallet::getter(fn my_game_state)]
 	pub type GameState<T: Config> = StorageMap<_, Blake2_128Concat, u32, u32, ValueQuery>;
@@ -191,12 +195,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn my_bottom_cards)]
 	pub type BottomCards<T: Config> = StorageMap<_, Blake2_128Concat, u32, Vec<u32>, ValueQuery>;
-
-	/// 玩家对应的房间号
-	#[pallet::storage]
-	#[pallet::getter(fn my_player_game)]
-	pub type Player2Game<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
 	/// 玩家对应的手牌
 	#[pallet::storage]
@@ -251,7 +249,6 @@ pub mod pallet {
 			ensure!(!Game::<T>::contains_key(&room), "Room already exists");
 			let game_id: u32 = generate_room_number(room);
 			Game::<T>::insert(&room, &game_id);
-			Player2Game::<T>::insert(&sender, &game_id);
 			// 游戏状态设为未开始
 			GameState::<T>::insert(&game_id, 0);
 			//创建初始玩家
@@ -302,7 +299,6 @@ pub mod pallet {
 			GamePlayers::<T>::insert(&game_id, new_accounts);
 			PlayerNames::<T>::insert(&game_id,&gamer,playername);
 			let num_players = accounts.len() as u32; // 玩家数量
-			Player2Game::<T>::insert(&gamer, &game_id);
 			Self::deposit_event(Event::GamerJoined(num_players));
 
 			Ok(().into())
@@ -321,6 +317,10 @@ pub mod pallet {
             	count += 1;
 			}
 			if count == 3 {
+				if GameState::<T>::get(&game_id) == 1{
+					return Err(Error::<T>::GameStarted.into())
+				}
+				GameState::<T>::insert(&game_id, 1);
 				// 如果找到3条数据则可以开始发牌
 				// 人数已满，游戏状态设为进行中
 				// 按顺序发牌给三个玩家
@@ -367,20 +367,27 @@ pub mod pallet {
 
 		// 叫地主，先到先得
 		#[pallet::weight(0)]
-		pub fn call(origin: OriginFor<T>, id: u32) -> DispatchResultWithPostInfo {
+		pub fn call(origin: OriginFor<T>, game_id: u32) -> DispatchResultWithPostInfo {
 			let gamer = ensure_signed(origin)?;
-			let game_id = Player2Game::<T>::get(&gamer);
 			ensure!(!GameLeader::<T>::contains_key(&game_id), "Room already has a leader");
 			GameLeader::<T>::insert(&game_id, &gamer);
 			// 设置地主为当前玩家
 			GameCurPlayer::<T>::insert(&game_id, &gamer);
+			let mut leadercards = PlayerCards::<T>::get(&gamer);
+			let bottomcards = BottomCards::<T>::get(&game_id);
+			//把底牌加入到地主牌当中
+			for card in bottomcards{
+				leadercards.push(card);
+			}
+			// 更新地主的牌
+			PlayerCards::<T>::insert(&gamer, leadercards);
+			Self::deposit_event(Event::GameCurPlayerId(gamer));
 			Ok(().into())
 		}
 
 		#[pallet::weight(0)]
-		pub fn play(origin: OriginFor<T>, cards: Vec<u32>) -> DispatchResultWithPostInfo {
+		pub fn play(origin: OriginFor<T>, game_id: u32,cards: Vec<u32>) -> DispatchResultWithPostInfo {
 			let gamer = ensure_signed(origin)?;
-			let game_id = Player2Game::<T>::get(&gamer);
 			let cur_player = GameCurPlayer::<T>::get(&game_id);
 			match cur_player {
 				Some(id) => {
