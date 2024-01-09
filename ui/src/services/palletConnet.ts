@@ -147,7 +147,6 @@ export async function readyGame(gameId: string): Promise<any> {
                 try {
                     const retPokers = await api.query.zkPoker.playerCards(SENDER);
                     console.log('retPokers:', retPokers);
-                    console.log('retPokers human:', retPokers.toHuman());
                     console.log('retPokers toJSON:', retPokers.toJSON());
                     ret = 1;
                     resolve(ret);
@@ -158,6 +157,30 @@ export async function readyGame(gameId: string): Promise<any> {
         });
     });
 }
+//抢地主
+export const robLandlord = async (gameId: string): Promise<number> => {
+    const substrateConnection = SubstrateConnection.getInstance();
+    const { SENDER, injector } = await substrateConnection.setupWeb3();
+    const api = await substrateConnection.setupApi();
+    const tx = api.tx.zkPoker.call(gameId);
+    let ret = -1;
+
+    return new Promise<number>((resolve, reject) => {
+        tx.signAndSend(SENDER, { signer: injector.signer }, async ({ status }) => {
+            if (status.isInBlock) {
+                console.log(`Transaction included at blockHash ${status.asInBlock}`);
+                try {
+                    const gameLeader = await api.query.zkPoker.gameLeader(gameId);
+                    console.log('gameLeader toJSON:', gameLeader.toJSON());
+                    ret = gameLeader.toJSON() as number;
+                    resolve(ret);
+                } catch (error) {
+                    reject(error);
+                }
+            }
+        });
+    });
+ }
 //查询玩家
 export const queryPlayer = async (gameId: string): Promise<any> => {
     const substrateConnection = SubstrateConnection.getInstance();
@@ -171,18 +194,35 @@ export const queryCards = async (): Promise<any> => {
     const api = await substrateConnection.setupApi();
     return await api.query.zkPoker.playerCards(SENDER);
 }
+//查询底牌
+export const queryBottomCards = async (gameId:any): Promise<any> => {
+    const substrateConnection = SubstrateConnection.getInstance();
+    const { SENDER, injector } = await substrateConnection.setupWeb3();
+    const api = await substrateConnection.setupApi();
+    return await api.query.zkPoker.bottomCards(gameId);
+}
+//设置玩家卡牌
 async function setCards(playerMiddle: any,) {
     const cards = await queryCards();
     console.log('cards:', cards.toJSON());
     const myCard = createPokerCard(cards.toJSON()).sort((a, b) => b.id - a.id);
     playerMiddle.value.hands = myCard;
 }
+//设置底牌
+async function setBottomCards(topThree: any,gameId:any) {
+    const cards = await queryBottomCards(gameId);
+    console.log('bottomcards:', cards);
+    console.log('bottomcards human:', cards.toHuman());
+    const cardsHuman = cards.toHuman(); 
+    // 将字符串数组转换为数字数组,我也不知道为什么变成字符串数组了，为什么playerCards没有变成字符串
+    const cardsNumberArray = cardsHuman.map(card => parseInt(card));
+    const myCard = createPokerCard(cardsNumberArray).sort((a, b) => b.id - a.id);
+    topThree.value.hands = myCard;
+}
 //循环设置名字
 async function setName(gameId: string, playerMiddle: any, playerLeft: any, playerRight: any) {
     const players = await queryPlayer(gameId);
-    console.log('players:', players);
     console.log('players human:', players.toHuman());
-    console.log('players human[0]:', players.toHuman()[0]);
     const allInjected = await web3Enable('my cool dapp');
     if (!allInjected.length) {
         throw new Error('No injected sources available');
@@ -216,7 +256,7 @@ async function setName(gameId: string, playerMiddle: any, playerLeft: any, playe
 }
 
 //事件查询的回调函数
-async function handleEvent(gameId: string, api: any, playerMiddle: any, playerLeft: any, playerRight: any) {
+async function handleEvent(gameId: string, api: any, playerMiddle: any, playerLeft: any, playerRight: any,topThree :any) {
     api.query.system.events((events: any) => {
         events.forEach((record: any) => {
             // 获取事件数据
@@ -237,14 +277,18 @@ async function handleEvent(gameId: string, api: any, playerMiddle: any, playerLe
                 if (event.method === 'PlayerAllPrepared') {
                     setCards(playerMiddle);
                 }
+                if (event.method === 'GameCurPlayerId') {
+                    setCards(playerMiddle);
+                    setBottomCards(topThree,gameId);
+                }
             }
         });
     });
 }
-export async function initPokerGame(gameId: string, playerMiddle: any, playerLeft: any, playerRight: any) {
+export async function initPokerGame(gameId: string, playerMiddle: any, playerLeft: any, playerRight: any,topThree :any) {
     const substrateConnection = SubstrateConnection.getInstance();
     const api = await substrateConnection.setupApi();
     // 订阅系统事件
-    await handleEvent(gameId, api, playerMiddle, playerLeft, playerRight);
+    await handleEvent(gameId, api, playerMiddle, playerLeft, playerRight,topThree);
     await setName(gameId, playerMiddle, playerLeft, playerRight);
 }

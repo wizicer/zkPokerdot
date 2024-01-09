@@ -32,7 +32,7 @@
       <div class="ui-tip" v-show="gamePrepared">
         <el-button type="primary" @click="prepareGame">Prepare</el-button>
       </div>
-      <div class="ui-tip" v-show="!gameStarted && isTurn">
+      <div class="ui-tip" v-show="!gameStarted">
         <el-button type="success" @click="callGame">Call</el-button>
         <el-button type="info" @click="skipCallGame">skipCall</el-button>
       </div>
@@ -70,7 +70,7 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3, loading, localRun, initPokerGame,readyGame } from '../services/palletConnet';
+import { initializeWeb3, loading, localRun, initPokerGame,readyGame,robLandlord } from '../services/palletConnet';
 
 const gamePrepared = ref(true);//已经准备
 const gameStarted = ref(true);//已经开始
@@ -222,7 +222,7 @@ onMounted(async () => {
   }
   else {
     console.log('正常运行');
-    initPokerGame(gameId, playerMiddle, playerLeft, playerRight);
+    initPokerGame(gameId, playerMiddle, playerLeft, playerRight,topThree);
   }
 });
 
@@ -265,6 +265,8 @@ const prepareGame = async () => {
     const loading = ElLoading.service({lock: true,text: 'preparing',background: 'rgba(0, 0, 0, 0.7)',})
     await readyGame(gameId);
     loading.close();
+    gamePrepared.value = false;
+    gameStarted.value = false;
   }
 }
 
@@ -294,6 +296,8 @@ const passTurn = async () => {
 }
 const callGame = async () => {
   console.log("叫地主");//叫地主
+  console.log("准备游戏");//准备游戏
+  if (localRun) {
   await initializeWeb3();
   gamePlayed.value = false;
   gameStarted.value = true;
@@ -303,6 +307,12 @@ const callGame = async () => {
   topThree.value = roomState.remainingCards;
   playerMiddle.value.hands = Room.getRoomState(roomName).players[0].hands;
   console.log(roomState);
+  }
+  else {
+    const loading = ElLoading.service({lock: true,text: 'calling',background: 'rgba(0, 0, 0, 0.7)',})
+    await robLandlord(gameId);
+    loading.close();
+  }
 }
 const skipCallGame = () => {
   console.log("不叫");//不叫
