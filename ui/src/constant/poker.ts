@@ -394,26 +394,15 @@ const POKERS: PokerCard[] = [
   //JOKER
 ]
 
-function createPokerCard(id: number): PokerCard {
-  let suit: string;
-  let img: string;
-  const rank:string = "2";
-  const isSelected = false; // 默认值，可以根据需要调整
-  // 示例逻辑：根据id确定suit和sortKey
-  // 这里的逻辑应该根据你的具体需求来定制
-  if (id === 1) {
-    suit = 'spades';
-    img = '2';
-  } else if (id === 2) {
-    suit = 'spades';
-    img = "3";
-  } else {
-    // 默认值或错误处理
-    suit = 'spades';
-    img = '2';
-  }
-
-  return { id, suit, rank,img, isSelected };
+export function createPokerCard(id: number[]): PokerCard[] {
+  return id.map((id) => {
+    const card = POKERS.find((card) => card.id === id);
+    if (card) {
+      return { ...card, isSelected: false };
+    } else {
+      throw new Error(`Card with ID ${id} not found.`);
+    }
+  });
 }
 
 // 洗牌函数

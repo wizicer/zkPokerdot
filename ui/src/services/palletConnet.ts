@@ -1,7 +1,7 @@
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { ElLoading } from 'element-plus'
-import { pokerNumber, shuffleDeckNumber } from '../constant/poker';
+import { pokerNumber, shuffleDeckNumber,createPokerCard } from '../constant/poker';
 
 export const localRun: boolean = false;
 
@@ -171,9 +171,11 @@ export const queryCards = async (): Promise<any> => {
     const api = await substrateConnection.setupApi();
     return await api.query.zkPoker.playerCards(SENDER);
 }
-async function setCards() {
+async function setCards(playerMiddle: any,) {
     const cards = await queryCards();
     console.log('cards:', cards.toJSON());
+    const myCard = createPokerCard(cards.toJSON()).sort((a, b) => b.id - a.id);
+    playerMiddle.value.hands = myCard;
 }
 //循环设置名字
 async function setName(gameId: string, playerMiddle: any, playerLeft: any, playerRight: any) {
@@ -233,7 +235,7 @@ async function handleEvent(gameId: string, api: any, playerMiddle: any, playerLe
                     setName(gameId, playerMiddle, playerLeft, playerRight);
                 }
                 if (event.method === 'PlayerAllPrepared') {
-                    setCards();
+                    setCards(playerMiddle);
                 }
             }
         });
