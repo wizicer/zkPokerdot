@@ -1,5 +1,4 @@
-// type Suit = "spades" | "hearts" | "diamonds" | "clubs" | "red" | "black";
-// type Rank = "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A" | "JOKER";
+
 export interface PokerCard {
   id: number;
   suit: string;
@@ -394,15 +393,16 @@ const POKERS: PokerCard[] = [
   //JOKER
 ]
 
-export function createPokerCard(id: number[]): PokerCard[] {
-  return id.map((id) => {
-    const card = POKERS.find((card) => card.id === id);
-    if (card) {
-      return { ...card, isSelected: false };
-    } else {
-      throw new Error(`Card with ID ${id} not found.`);
-    }
+export function createPokerCard(ids: number[]): PokerCard[] {
+  const myPokerCard: PokerCard[] = [];
+  ids.forEach((id)=>{
+    POKERS.forEach((poker)=>{
+      if(poker.id === id){
+        myPokerCard.push(poker);
+      }
+    });
   });
+  return myPokerCard;
 }
 
 // 洗牌函数

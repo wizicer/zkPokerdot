@@ -27,16 +27,18 @@
         <div class="back"></div>
       </div>
     </div>
-    <!-- 叫地主和不叫的按钮 -->
+    <!-- 准备游戏 -->
     <div class="btn-group">
-      <div class="ui-tip" v-show="gamePrepared">
+      <div class="ui-tip" v-show="gameState === 0">
         <el-button type="primary" @click="prepareGame">Prepare</el-button>
       </div>
-      <div class="ui-tip" v-show="!gameStarted">
+      <!-- 叫地主和不叫的按钮 -->
+      <div class="ui-tip" v-show="gameState === 2">
         <el-button type="success" @click="callGame">Call</el-button>
         <el-button type="info" @click="skipCallGame">skipCall</el-button>
       </div>
-      <div class="ui-tip" v-show="!gamePlayed && isTurn">
+      <!-- 出牌和过的按钮 -->
+      <div class="ui-tip" v-show="gameState === 3 && isTurn">
         <el-button type="primary" @click="playCards">Play</el-button>
         <el-button type="primary" @click="passTurn">Pass</el-button>
       </div>
@@ -70,11 +72,10 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3, loading, localRun, initPokerGame,readyGame,robLandlord } from '../services/palletConnet';
+import { initializeWeb3, loading, localRun, initPokerGame, readyGame, robLandlord,pass } from '../services/palletConnet';
 
-const gamePrepared = ref(true);//已经准备
-const gameStarted = ref(true);//已经开始
-const gamePlayed = ref(true);//已经玩了
+
+const gameState = ref(0);
 const route = useRoute();
 const roomName = route.query.roomName as string;
 const gameId = route.query.gameId as string;
@@ -132,18 +133,7 @@ let playerRight: Ref<Player> = ref({
   hitedHands: []
 });
 const currentPlayerIndex = ref(-1);
-const isTurn = computed(() => {
-  if (currentPlayerIndex.value % 3 === 0 && playerMiddle.value.name === 'Alice') {
-    return true;
-  }
-  if (currentPlayerIndex.value % 3 === 1 && playerMiddle.value.name === 'Bob') {
-    return true;
-  }
-  if (currentPlayerIndex.value % 3 === 2 && playerMiddle.value.name === 'Carol') {
-    return true;
-  }
-  return false;
-});
+const isTurn = ref(false);
 // 当 localStorage 变化时调用的函数
 function handleStorageChange(event: StorageEvent) {
   // 检查 event.key 和 event.newValue 来响应特定的变化
@@ -186,8 +176,7 @@ function handleStorageChange(event: StorageEvent) {
     playedCardsLeft.value = roomState.players.find(p => p.name === playerLeft.value.name)?.hitedHands ?? [];
     playedCardsRight.value = roomState.players.find(p => p.name === playerRight.value.name)?.hitedHands ?? [];
     currentPlayerIndex.value = roomState.currentPlayerIndex;
-    gamePlayed.value = false;
-    gameStarted.value = true;
+    gameState.value = 2;
   }
 }
 
@@ -222,13 +211,16 @@ onMounted(async () => {
   }
   else {
     console.log('正常运行');
-    initPokerGame(gameId, playerMiddle, playerLeft, playerRight,topThree);
+    initPokerGame(gameId, playerMiddle, playerLeft, playerRight, topThree, gameState, isTurn);
   }
 });
 
 onUnmounted(() => {
   if (localRun) {
     window.removeEventListener('storage', handleStorageChange);
+  }
+  else {
+    console.log('onUnmounted');
   }
 });
 
@@ -238,8 +230,7 @@ const prepareGame = async () => {
   if (localRun) {
     await loading(9000, 'Preparing to shuffle');
     await initializeWeb3();
-    gamePrepared.value = false;
-    gameStarted.value = false;
+
     Room.updatePlayerStatus(roomName, playerMiddle.value.name, true);
     if (Room.areThreePlayersReady(roomName) === true)//判断三个玩家都已经准备
     {
@@ -261,56 +252,65 @@ const prepareGame = async () => {
       console.log(roomState);
     }
   }
-  else{
-    const loading = ElLoading.service({lock: true,text: 'preparing',background: 'rgba(0, 0, 0, 0.7)',})
+  else {
+    const loading = ElLoading.service({ lock: true, text: 'preparing', background: 'rgba(0, 0, 0, 0.7)', })
     await readyGame(gameId);
     loading.close();
-    gamePrepared.value = false;
-    gameStarted.value = false;
+    
   }
 }
 
 const playCards = async () => {
-  console.log("出牌");
-  await loading(1500, 'Playing');
-  await initializeWeb3();
-  const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
-  // 筛选出未选择的牌
-  const remainingCards = playerMiddle.value.hands.filter(card => !card.isSelected);
-  // 更新玩家手牌
-  playerMiddle.value.hands = remainingCards;
-  // 更新 localStorage 中的游戏状态
-  Room.updatePlayerStatus(roomName, playerMiddle.value.name, undefined, true, remainingCards);
-  Room.setHitedHands(roomName, playerMiddle.value.name, selectedCards);
-  playedCards.value = selectedCards;
-  currentPlayerIndex.value += 1;
-  Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
+  if (localRun) {
+    console.log("出牌");
+    await loading(1500, 'Playing');
+    await initializeWeb3();
+    const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
+    // 筛选出未选择的牌
+    const remainingCards = playerMiddle.value.hands.filter(card => !card.isSelected);
+    // 更新玩家手牌
+    playerMiddle.value.hands = remainingCards;
+    // 更新 localStorage 中的游戏状态
+    Room.updatePlayerStatus(roomName, playerMiddle.value.name, undefined, true, remainingCards);
+    Room.setHitedHands(roomName, playerMiddle.value.name, selectedCards);
+    playedCards.value = selectedCards;
+    currentPlayerIndex.value += 1;
+    Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
+  }
+  else {
+
+  }
 }
 const passTurn = async () => {
   console.log("过");//过
-  await initializeWeb3();
-  playedCards.value = [];
-  Room.setHitedHands(roomName, playerMiddle.value.name, []);//清空显示
-  currentPlayerIndex.value += 1;
-  Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
+  if (localRun) {
+    await initializeWeb3();
+    playedCards.value = [];
+    Room.setHitedHands(roomName, playerMiddle.value.name, []);//清空显示
+    currentPlayerIndex.value += 1;
+    Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
+  }
+  else {
+    const loading = ElLoading.service({ lock: true, text: 'preparing', background: 'rgba(0, 0, 0, 0.7)', })
+    await pass(gameId,isTurn);
+    loading.close();
+  }
 }
 const callGame = async () => {
   console.log("叫地主");//叫地主
-  console.log("准备游戏");//准备游戏
   if (localRun) {
-  await initializeWeb3();
-  gamePlayed.value = false;
-  gameStarted.value = true;
-  const roomState = Room.getRoomState(roomName);
-  Room.updatePlayerStatus(roomName, playerMiddle.value.name, undefined, true, playerMiddle.value.hands.concat(roomState.remainingCards));
-  Room.setRoomState(roomName, "called");
-  topThree.value = roomState.remainingCards;
-  playerMiddle.value.hands = Room.getRoomState(roomName).players[0].hands;
-  console.log(roomState);
+    await initializeWeb3();
+    gameState.value = 3;
+    const roomState = Room.getRoomState(roomName);
+    Room.updatePlayerStatus(roomName, playerMiddle.value.name, undefined, true, playerMiddle.value.hands.concat(roomState.remainingCards));
+    Room.setRoomState(roomName, "called");
+    topThree.value = roomState.remainingCards;
+    playerMiddle.value.hands = Room.getRoomState(roomName).players[0].hands;
+    console.log(roomState);
   }
   else {
-    const loading = ElLoading.service({lock: true,text: 'calling',background: 'rgba(0, 0, 0, 0.7)',})
-    await robLandlord(gameId);
+    const loading = ElLoading.service({ lock: true, text: 'calling', background: 'rgba(0, 0, 0, 0.7)', })
+    await robLandlord(gameId,gameState,isTurn);
     loading.close();
   }
 }
