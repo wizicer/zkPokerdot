@@ -123,6 +123,7 @@ pub mod pallet {
 		PlayerAlreadyJoined,
 		/// 游戏已经开始，不再洗牌
 		GameStarted,
+		WrongPlayerId,
 	}
 
 	/// Storing a public input.
@@ -186,7 +187,7 @@ pub mod pallet {
 	#[pallet::getter(fn my_game_leader)]
 	pub type GameLeader<T: Config> = StorageMap<_, Blake2_128Concat, u32, T::AccountId>;
 
-	/// 房间号对应的游戏状态0 创建房间,1 有人加入房间, 2 所有玩家准备 ，3游戏结束  
+	/// 房间号对应的游戏状态0 创建房间,1 所有玩家加入房间, 2 所有玩家准备 ，3已叫地主，4游戏结束  
 	#[pallet::storage]
 	#[pallet::getter(fn my_game_state)]
 	pub type GameState<T: Config> = StorageMap<_, Blake2_128Concat, u32, u32, ValueQuery>;
@@ -317,10 +318,10 @@ pub mod pallet {
             	count += 1;
 			}
 			if count == 3 {
-				if GameState::<T>::get(&game_id) == 1{
+				if GameState::<T>::get(&game_id) == 2{
 					return Err(Error::<T>::GameStarted.into())
 				}
-				GameState::<T>::insert(&game_id, 1);
+				GameState::<T>::insert(&game_id, 2);
 				// 如果找到3条数据则可以开始发牌
 				// 人数已满，游戏状态设为进行中
 				// 按顺序发牌给三个玩家
@@ -381,6 +382,8 @@ pub mod pallet {
 			}
 			// 更新地主的牌
 			PlayerCards::<T>::insert(&gamer, leadercards);
+			// 更新游戏状态
+			GameState::<T>::insert(&game_id, 3);
 			Self::deposit_event(Event::GameCurPlayerId(gamer));
 			Ok(().into())
 		}
@@ -407,6 +410,33 @@ pub mod pallet {
 			}
 			Ok(().into())
 		}
+
+		#[pallet::weight(0)]
+		pub fn pass(origin: OriginFor<T>, game_id: u32) -> DispatchResultWithPostInfo {
+			let gamer = ensure_signed(origin)?;
+			let cur_player = GameCurPlayer::<T>::get(&game_id).ok_or(Error::<T>::WrongPlayerId)?;
+			
+			// 确保调用者是当前玩家
+			ensure!(gamer == cur_player, Error::<T>::WrongPlayerId);
+		
+			// 获取所有玩家的列表
+			let accounts = GamePlayers::<T>::get(&game_id);
+			
+			// 找到当前玩家的位置并计算下一个玩家
+			if let Some(index) = accounts.iter().position(|p| p == &gamer) {
+				let next_index = (index + 1) % accounts.len();
+				let next_player = &accounts[next_index];
+		
+				// 设置下一个玩家为当前玩家
+				GameCurPlayer::<T>::insert(&game_id, next_player);
+				Self::deposit_event(Event::GameCurPlayerId(next_player.clone()));
+			} else {
+				return Err(Error::<T>::WrongPlayerId.into());
+			}
+		
+			Ok(().into())
+		}
+		
 	}
 
 	#[allow(dead_code)]
