@@ -167,6 +167,8 @@ pub mod pallet {
 	>;
 
 
+
+
 	/// 房间号对应洗完之后的牌
 	#[pallet::storage]
 	#[pallet::getter(fn my_game_decks)]
@@ -202,6 +204,16 @@ pub mod pallet {
 	#[pallet::getter(fn my_cards)]
 	pub type PlayerCards<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, Vec<u32>, ValueQuery>;
+	
+	//gameId+sender 对照 打出的牌  
+	#[pallet::storage]
+	pub(super) type HittedCards<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat, u32,
+		Blake2_128Concat, T::AccountId,
+		Vec<u32>,
+		ValueQuery
+	>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -391,23 +403,38 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn play(origin: OriginFor<T>, game_id: u32,cards: Vec<u32>) -> DispatchResultWithPostInfo {
 			let gamer = ensure_signed(origin)?;
-			let cur_player = GameCurPlayer::<T>::get(&game_id);
-			match cur_player {
-				Some(id) => {
-					if id != gamer {
-						return Ok(().into()) // Return an error if the current player is not the gamer
-					}
-					// 先看当前是不是第一个出牌
-					let cur_cards = CurCards::<T>::get(&game_id);
-					if cur_cards.is_empty() {
-						CurCards::<T>::insert(&game_id, &cards);
-					}
-					if !cur_cards.is_empty() && !cards.is_empty() && cur_cards[0] >= cards[0] {
-						return Ok(().into())
-					}
-				},
-				_ => return Ok(().into()), // Return an error if there is no current player
+			let cur_player = GameCurPlayer::<T>::get(&game_id).ok_or(Error::<T>::WrongPlayerId)?;
+			
+			// 确保调用者是当前玩家
+			ensure!(gamer == cur_player, Error::<T>::WrongPlayerId);
+			
+			// 更新HittedCards
+			// HittedCards::<T>::mutate(game_id, &gamer, |hitted_cards| {
+			// 	hitted_cards.extend(cards.clone());
+				
+			// });
+			HittedCards::<T>::insert(game_id,&gamer,cards.clone());
+			 // 获取玩家的手牌
+			let mut player_cards = PlayerCards::<T>::get(&gamer);
+			// 从PlayerCards中删除出的牌
+			player_cards.retain(|card| !cards.contains(card));
+			PlayerCards::<T>::insert(&gamer, player_cards);
+
+			// 获取所有玩家的列表
+			let accounts = GamePlayers::<T>::get(&game_id);
+			
+			// 找到当前玩家的位置并计算下一个玩家
+			if let Some(index) = accounts.iter().position(|p| p == &gamer) {
+				let next_index = (index + 1) % accounts.len();
+				let next_player = &accounts[next_index];
+		
+				// 设置下一个玩家为当前玩家
+				GameCurPlayer::<T>::insert(&game_id, next_player);
+				Self::deposit_event(Event::GameCurPlayerId(next_player.clone()));
+			} else {
+				return Err(Error::<T>::WrongPlayerId.into());
 			}
+		
 			Ok(().into())
 		}
 
