@@ -1,7 +1,8 @@
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { ElLoading } from 'element-plus'
-import { pokerNumber, shuffleDeckNumber,createPokerCard } from '../constant/poker';
+import { pokerNumber, shuffleDeckNumber, createPokerCard } from '../constant/poker';
+import type { PokerCard } from '../constant/poker';
 
 export const localRun: boolean = false;
 
@@ -158,23 +159,22 @@ export async function readyGame(gameId: string): Promise<any> {
     });
 }
 //抢地主
-export const robLandlord = async (gameId: string,gameState:any,isTurn:any): Promise<number> => {
+export const robLandlord = async (gameId: string, gameState: any, isTurn: any): Promise<string> => {
     const substrateConnection = SubstrateConnection.getInstance();
     const { SENDER, injector } = await substrateConnection.setupWeb3();
     const api = await substrateConnection.setupApi();
     const tx = api.tx.zkPoker.call(gameId);
-    let ret = -1;
-
-    return new Promise<number>((resolve, reject) => {
+    let ret = '';
+    gameState.value = 2;
+    return new Promise<string>((resolve, reject) => {
         tx.signAndSend(SENDER, { signer: injector.signer }, async ({ status }) => {
             if (status.isInBlock) {
                 console.log(`Transaction included at blockHash ${status.asInBlock}`);
                 try {
                     const gameLeader = await api.query.zkPoker.gameLeader(gameId);
                     console.log('gameLeader toJSON:', gameLeader.toJSON());
-                    ret = gameLeader.toJSON() as number;
-                    if(SENDER === ret)
-                    {
+                    ret = gameLeader.toJSON() as string;
+                    if (SENDER === ret) {
                         gameState.value = 3;
                         isTurn.value = true;
                     }
@@ -185,13 +185,13 @@ export const robLandlord = async (gameId: string,gameState:any,isTurn:any): Prom
             }
         });
     });
- }
- //下一个
-export const pass = async (gameId:string,isTurn:any)=>{
+}
+//下一个
+export const pass = async (gameId: string, isTurn: any) => {
     const substrateConnection = SubstrateConnection.getInstance();
     const { SENDER, injector } = await substrateConnection.setupWeb3();
     const api = await substrateConnection.setupApi();
-    const tx = api.tx.zkPoker.pass(gameId);
+    const tx = api.tx.zkPoker.play(gameId);
     let ret = -1;
 
     return new Promise<number>((resolve, reject) => {
@@ -202,6 +202,39 @@ export const pass = async (gameId:string,isTurn:any)=>{
                     const gameCurPlayer = await api.query.zkPoker.gameCurPlayer(gameId);
                     console.log('gameCurPlayer toJSON:', gameCurPlayer.toJSON());
                     ret = gameCurPlayer.toJSON() as number;
+                    isTurn.value = false;
+                    resolve(ret);
+                } catch (error) {
+                    reject(error);
+                }
+            }
+        });
+    });
+}
+//出牌
+export const play = async (gameId: string, isTurn: any, playedCards: PokerCard[]) => {
+    if (playedCards.length == 0) {
+        return;
+    }
+    const substrateConnection = SubstrateConnection.getInstance();
+    const { SENDER, injector } = await substrateConnection.setupWeb3();
+    const api = await substrateConnection.setupApi();
+    const numberCards: number[] = [];
+    playedCards.forEach((card: PokerCard) => {
+        numberCards.push(card.id)
+    }
+    )
+    const tx = api.tx.zkPoker.play(gameId, numberCards);
+    let ret = -1;
+
+    return new Promise<number>((resolve, reject) => {
+        tx.signAndSend(SENDER, { signer: injector.signer }, async ({ status }) => {
+            if (status.isInBlock) {
+                console.log(`Transaction included at blockHash ${status.asInBlock}`);
+                try {
+                    const hittedCards = await api.query.zkPoker.hittedCards(gameId, SENDER);
+                    console.log('hittedCards toJSON:', hittedCards.toJSON());
+                    ret = hittedCards.toJSON() as number;
                     isTurn.value = false;
                     resolve(ret);
                 } catch (error) {
@@ -225,7 +258,7 @@ export const queryCards = async (): Promise<any> => {
     return await api.query.zkPoker.playerCards(SENDER);
 }
 //查询底牌
-export const queryBottomCards = async (gameId:string): Promise<any> => {
+export const queryBottomCards = async (gameId: string): Promise<any> => {
     const substrateConnection = SubstrateConnection.getInstance();
     const api = await substrateConnection.setupApi();
     return await api.query.zkPoker.bottomCards(gameId);
@@ -237,14 +270,34 @@ async function setCards(playerMiddle: any) {
     const myCard = createPokerCard(cards.toJSON()).sort((a, b) => b.id - a.id);
     playerMiddle.value.hands = myCard;
 }
+//设置打出的牌
+async function setHittedCards(gameId: string,playedCards: any, playedCardsLeft: any, playedCardsRight: any,playerMiddle: any, playerLeft: any, playerRight: any) {
+    const substrateConnection = SubstrateConnection.getInstance();
+    const { SENDER, injector } = await substrateConnection.setupWeb3();
+    const api = await substrateConnection.setupApi();
+    // 遍历所有玩家，获取他们的HittedCards
+    const hittedCards1 = await api.query.zkPoker.hittedCards(gameId, playerMiddle.value.id);
+    console.log('hittedCards1',hittedCards1.toJSON());
+    const Cards1 = createPokerCard(hittedCards1.toJSON()).sort((a, b) => b.id - a.id);
+    playedCards.value = Cards1;
+
+    const hittedCards2 = await api.query.zkPoker.hittedCards(gameId, playerLeft.value.id);
+    console.log('hittedCards2',hittedCards2.toJSON());
+    const Cards2 = createPokerCard(hittedCards2.toJSON()).sort((a, b) => b.id - a.id);
+    playedCardsLeft.value = Cards2;
+
+    const hittedCards3 = await api.query.zkPoker.hittedCards(gameId, playerRight.value.id);
+    const Cards3 = createPokerCard(hittedCards3.toJSON()).sort((a, b) => b.id - a.id);
+    playedCardsRight.value = Cards3;
+}
 //设置底牌
-async function setBottomCards(topThree: any,gameId:string) {
+async function setBottomCards(topThree: any, gameId: string) {
     const cards = await queryBottomCards(gameId);
     console.log('bottomcards:', cards);
     console.log('bottomcards human:', cards.toHuman());
-    const cardsHuman = cards.toHuman(); 
+    const cardsHuman = cards.toHuman();
 
-// 将字符串数组转换为数字数组
+    // 将字符串数组转换为数字数组
     const cardsNumberArray = cardsHuman.map((card: string) => parseInt(card));
     const myCard = createPokerCard(cardsNumberArray).sort((a, b) => b.id - a.id);
     console.log('myCard:', myCard);
@@ -260,6 +313,7 @@ async function setName(gameId: string, playerMiddle: any, playerLeft: any, playe
     }
     const allAccounts = await web3Accounts();
     playerMiddle.value.name = allAccounts[0].meta.name as string;
+    playerMiddle.value.id = allAccounts[0].address;
     console.log(allAccounts[0].meta.name);
     let startIndex = -1;
     for (let i = 0; i < players.toHuman().length; i++) {
@@ -276,9 +330,11 @@ async function setName(gameId: string, playerMiddle: any, playerLeft: any, playe
             const currentIndex = (startIndex + j) % players.toHuman().length;
             if (j === 1) {
                 playerRight.value.name = players.toHuman()[currentIndex];
+                playerRight.value.id = players.toHuman()[currentIndex];
             }
             if (j === 2) {
                 playerLeft.value.name = players.toHuman()[currentIndex];
+                playerLeft.value.id = players.toHuman()[currentIndex];
             }
         }
     } else {
@@ -286,23 +342,22 @@ async function setName(gameId: string, playerMiddle: any, playerLeft: any, playe
     }
 }
 //设置轮次
-async function setIsTurn(isTurn: any,retCurplayer:string) {
+async function setIsTurn(isTurn: any, retCurplayer: string) {
     const substrateConnection = SubstrateConnection.getInstance();
     const { SENDER, injector } = await substrateConnection.setupWeb3();
     console.log(SENDER);
     console.log(retCurplayer);
-    if(SENDER === retCurplayer)//判断是否是自己的轮次
+    if (SENDER === retCurplayer)//判断是否是自己的轮次
     {
         isTurn.value = true;
     }
-    else
-    {
+    else {
         isTurn.value = false;
     }
 }
 
 //事件查询的回调函数
-async function handleEvent(gameId: string, api: any, playerMiddle: any, playerLeft: any, playerRight: any,topThree :any,gameState:any,isTurn:any) {
+async function handleEvent(gameId: string, api: any, playerMiddle: any, playerLeft: any, playerRight: any, topThree: any, gameState: any, isTurn: any,playedCards: any,playedCardsLeft: any,playedCardsRight: any) {
     api.query.system.events((events: any) => {
         events.forEach((record: any) => {
             // 获取事件数据
@@ -325,38 +380,39 @@ async function handleEvent(gameId: string, api: any, playerMiddle: any, playerLe
                 }
                 if (event.method === 'GameCurPlayerId') {
                     setCards(playerMiddle);
-                    setBottomCards(topThree,gameId);
+                    setBottomCards(topThree, gameId);
                     event.data.forEach((data: any) => {
-                        setIsTurn(isTurn,data.toString());
+                        setIsTurn(isTurn, data.toString());
                     });
-                    
+                    setHittedCards(gameId,playedCards,playedCardsLeft,playedCardsRight,playerMiddle, playerLeft, playerRight);
                 }
             }
         });
     });
 }
-export async function initPokerGame(gameId: string, playerMiddle: any, playerLeft: any, playerRight: any,topThree :any,gameState:any,isTurn:any) {
+export async function initPokerGame(gameId: string, playerMiddle: any, playerLeft: any, playerRight: any, topThree: any, gameState: any, isTurn: any,playedCards: any,playedCardsLeft: any,playedCardsRight: any) {
     const substrateConnection = SubstrateConnection.getInstance();
     const api = await substrateConnection.setupApi();
     // 订阅系统事件
-    await handleEvent(gameId, api, playerMiddle, playerLeft, playerRight,topThree,gameState,isTurn);
+    await handleEvent(gameId, api, playerMiddle, playerLeft, playerRight, topThree, gameState, isTurn,playedCards,playedCardsLeft,playedCardsRight);
     await setName(gameId, playerMiddle, playerLeft, playerRight);
     const [retState, retCurplayer] = await Promise.all([
         api.query.zkPoker.gameState(gameId),
         api.query.zkPoker.gameCurPlayer(gameId)
     ]);
-    console.log('308retState.toHuman()',retState.toHuman())
-    console.log('309retCurplayer.toHuman()',retCurplayer.toHuman())
+    console.log('308retState.toHuman()', retState.toHuman())
+    console.log('309retCurplayer.toHuman()', retCurplayer.toHuman())
     gameState.value = parseInt(retState.toHuman() as string);
-    if(gameState.value === 2) //所有玩家准备
+    if (gameState.value === 2) //所有玩家准备
     {
         setCards(playerMiddle);
     }
-    if(gameState.value === 3) //已叫游戏
+    if (gameState.value === 3) //已叫游戏
     {
         setCards(playerMiddle);
-        setBottomCards(topThree,gameId);
+        setBottomCards(topThree, gameId);
     }
-    console.log('gameState.value',gameState.value)
-    setIsTurn(isTurn,retCurplayer.toHuman().toString());
+    console.log('gameState.value', gameState.value)
+    setIsTurn(isTurn, retCurplayer.toHuman().toString());
+    setHittedCards(gameId,playedCards,playedCardsLeft,playedCardsRight,playerMiddle, playerLeft, playerRight);
 }

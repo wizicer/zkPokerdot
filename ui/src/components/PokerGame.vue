@@ -72,7 +72,7 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Room } from '../constant/roomState';
 import { dealCards } from '../constant/poker';
-import { initializeWeb3, loading, localRun, initPokerGame, readyGame, robLandlord,pass } from '../services/palletConnet';
+import { initializeWeb3, loading, localRun, initPokerGame, readyGame, robLandlord,pass,play } from '../services/palletConnet';
 
 
 const gameState = ref(0);
@@ -112,6 +112,7 @@ let playedCardsLeft: Ref<PokerCard[]> = ref([]);
 let playedCardsRight: Ref<PokerCard[]> = ref([]);
 //玩家显示
 let playerMiddle: Ref<Player> = ref({
+  id:'',
   name: route.query.playerName as string,
   hands: [],
   isLandlord: false,
@@ -119,6 +120,7 @@ let playerMiddle: Ref<Player> = ref({
   hitedHands: []
 });
 let playerLeft: Ref<Player> = ref({
+  id:'',
   name: ' ',
   hands: [],
   isLandlord: false,
@@ -126,6 +128,7 @@ let playerLeft: Ref<Player> = ref({
   hitedHands: []
 });
 let playerRight: Ref<Player> = ref({
+  id:'',
   name: ' ',
   hands: [],
   isLandlord: false,
@@ -211,7 +214,7 @@ onMounted(async () => {
   }
   else {
     console.log('正常运行');
-    initPokerGame(gameId, playerMiddle, playerLeft, playerRight, topThree, gameState, isTurn);
+    initPokerGame(gameId, playerMiddle, playerLeft, playerRight, topThree, gameState, isTurn,playedCards,playedCardsLeft,playedCardsRight);
   }
 });
 
@@ -253,16 +256,16 @@ const prepareGame = async () => {
     }
   }
   else {
+    gameState.value = 1;
     const loading = ElLoading.service({ lock: true, text: 'preparing', background: 'rgba(0, 0, 0, 0.7)', })
     await readyGame(gameId);
     loading.close();
-    
   }
 }
 
 const playCards = async () => {
+  console.log("出牌");
   if (localRun) {
-    console.log("出牌");
     await loading(1500, 'Playing');
     await initializeWeb3();
     const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
@@ -278,7 +281,10 @@ const playCards = async () => {
     Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
   }
   else {
-
+    const loading = ElLoading.service({ lock: true, text: 'playing', background: 'rgba(0, 0, 0, 0.7)', })
+    const selectedCards = playerMiddle.value.hands.filter(card => card.isSelected);
+    await play(gameId,isTurn,selectedCards);
+    loading.close();
   }
 }
 const passTurn = async () => {
@@ -291,7 +297,7 @@ const passTurn = async () => {
     Room.setCurrentPlayerIndex(roomName, currentPlayerIndex.value);
   }
   else {
-    const loading = ElLoading.service({ lock: true, text: 'preparing', background: 'rgba(0, 0, 0, 0.7)', })
+    const loading = ElLoading.service({ lock: true, text: 'passing', background: 'rgba(0, 0, 0, 0.7)', })
     await pass(gameId,isTurn);
     loading.close();
   }

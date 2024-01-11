@@ -1,6 +1,7 @@
 import type { PokerCard } from './poker';
 
 export interface Player {
+  id:string;
   name: string;
   hands: PokerCard[];
   isLandlord: boolean;
