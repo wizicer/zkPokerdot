@@ -92,7 +92,7 @@ impl ZKPokerVerifyCmd {
 		match verify(
 			prepare_verification_key(vk).unwrap(),
 			prepare_proof(proof).unwrap(),
-			prepare_public_inputs(inputs),
+			inputs,
 		) {
 			Ok(true) => println!("Proof OK"),
 			Ok(false) => println!("Proof NOK"),

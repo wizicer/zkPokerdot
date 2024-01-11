@@ -275,9 +275,9 @@ impl pallet_sudo::Config for Runtime {
 
 /// Configure the pallet-template in pallets/zk-poker.
 impl pallet_zk_poker::Config for Runtime {
-	type MaxPublicInputsLength = ConstU32<9>;
-	type MaxProofLength = ConstU32<1115>;
-	type MaxVerificationKeyLength = ConstU32<4079>;
+	type MaxPublicInputsLength = ConstU32<10000>;
+	type MaxProofLength = ConstU32<111500>;
+	type MaxVerificationKeyLength = ConstU32<407900>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_zk_poker::weights::SubstrateWeight<Runtime>;
 }

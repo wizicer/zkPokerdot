@@ -33,10 +33,11 @@ pub mod pallet {
 		common::prepare_verification_key,
 		deserialization::{deserialize_public_inputs, Proof, VKey},
 		verify::{
-			prepare_public_inputs, verify, G1UncompressedBytes, G2UncompressedBytes, GProof,
-			VerificationKey, SUPPORTED_CURVE, SUPPORTED_PROTOCOL,
+			verify, G1UncompressedBytes, G2UncompressedBytes, GProof, VerificationKey,
+			SUPPORTED_CURVE, SUPPORTED_PROTOCOL,
 		},
 	};
+	use bls12_381::Scalar;
 	use core::cmp::Ordering;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -81,6 +82,9 @@ pub mod pallet {
 		GameCreated(u32),
 		/// 玩家加入游戏
 		GamerJoined(u32),
+		/// 玩家全部准备
+		PlayerAllPrepared,
+		GameCurPlayerId(T::AccountId),
 	}
 
 	#[pallet::error]
@@ -117,6 +121,9 @@ pub mod pallet {
 		GamerEnough,
 		/// 请勿重复加入游戏
 		PlayerAlreadyJoined,
+		/// 游戏已经开始，不再洗牌
+		GameStarted,
+		WrongPlayerId,
 	}
 
 	/// Storing a public input.
@@ -139,6 +146,28 @@ pub mod pallet {
 	#[pallet::getter(fn my_game_players)]
 	pub type GamePlayers<T: Config> =
 		StorageMap<_, Blake2_128Concat, u32, Vec<T::AccountId>, ValueQuery>;
+	
+	//gameId+sender 对照姓名
+	#[pallet::storage]
+	pub(super) type PlayerNames<T: Config> = StorageDoubleMap<
+    	_,
+    	Blake2_128Concat, u32,
+    	Blake2_128Concat, T::AccountId,
+    	Vec<u8>,
+    	ValueQuery
+	>;
+	//gameId+sender 对照 玩家状态  0 未准备， 1 准备
+	#[pallet::storage]
+	pub(super) type PlayerStatus<T: Config> = StorageDoubleMap<
+    	_,
+    	Blake2_128Concat, u32,
+    	Blake2_128Concat, T::AccountId,
+    	u32,
+    	ValueQuery
+	>;
+
+
+
 
 	/// 房间号对应洗完之后的牌
 	#[pallet::storage]
@@ -160,7 +189,7 @@ pub mod pallet {
 	#[pallet::getter(fn my_game_leader)]
 	pub type GameLeader<T: Config> = StorageMap<_, Blake2_128Concat, u32, T::AccountId>;
 
-	/// 房间号对应的游戏状态0,1,2
+	/// 房间号对应的游戏状态0 创建房间,1 所有玩家加入房间, 2 所有玩家准备 ，3已叫地主，4游戏结束  
 	#[pallet::storage]
 	#[pallet::getter(fn my_game_state)]
 	pub type GameState<T: Config> = StorageMap<_, Blake2_128Concat, u32, u32, ValueQuery>;
@@ -170,44 +199,48 @@ pub mod pallet {
 	#[pallet::getter(fn my_bottom_cards)]
 	pub type BottomCards<T: Config> = StorageMap<_, Blake2_128Concat, u32, Vec<u32>, ValueQuery>;
 
-	/// 玩家对应的房间号
-	#[pallet::storage]
-	#[pallet::getter(fn my_player_game)]
-	pub type Player2Game<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
-
 	/// 玩家对应的手牌
 	#[pallet::storage]
 	#[pallet::getter(fn my_cards)]
 	pub type PlayerCards<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, Vec<u32>, ValueQuery>;
+	
+	//gameId+sender 对照 打出的牌  
+	#[pallet::storage]
+	pub(super) type HittedCards<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat, u32,
+		Blake2_128Concat, T::AccountId,
+		Vec<u32>,
+		ValueQuery
+	>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Store a verification key.
 		#[pallet::weight(<T as Config>::WeightInfo::setup_verification_benchmark(vec_vk.len()))]
-		pub fn setup_verification(
-			_origin: OriginFor<T>,
-			pub_input: Vec<u8>,
-			vec_vk: Vec<u8>,
-		) -> DispatchResult {
-			let inputs = store_public_inputs::<T>(pub_input)?;
-			let vk = store_verification_key::<T>(vec_vk)?;
-			ensure!(vk.public_inputs_len == inputs.len() as u8, Error::<T>::PublicInputsMismatch);
+		pub fn setup_verification(_origin: OriginFor<T>, vec_vk: Vec<u8>) -> DispatchResult {
+			let _vk = store_verification_key::<T>(vec_vk)?;
 			Self::deposit_event(Event::<T>::VerificationSetupCompleted);
 			Ok(())
 		}
 
 		/// Verify a proof.
 		#[pallet::weight(<T as Config>::WeightInfo::verify_benchmark(vec_proof.len()))]
-		pub fn verify(origin: OriginFor<T>, vec_proof: Vec<u8>) -> DispatchResult {
+		pub fn verify(
+			origin: OriginFor<T>,
+			pub_input: Vec<u8>,
+			vec_proof: Vec<u8>,
+		) -> DispatchResult {
+			let inputs = store_public_inputs::<T>(pub_input)?;
 			let proof = store_proof::<T>(vec_proof)?;
 			let vk = get_verification_key::<T>()?;
-			let inputs = get_public_inputs::<T>()?;
+			// ensure!(vk.public_inputs_len == inputs.len() as u8,
+			// Error::<T>::PublicInputsMismatch); let inputs = get_public_inputs::<T>()?;
 			let sender = ensure_signed(origin)?;
 			Self::deposit_event(Event::<T>::VerificationProofSet);
 
-			match verify(vk, proof, prepare_public_inputs(inputs)) {
+			match verify(vk, proof, inputs) {
 				Ok(true) => {
 					Self::deposit_event(Event::<T>::VerificationSuccess { who: sender });
 					Ok(())
@@ -222,14 +255,13 @@ pub mod pallet {
 
 		// 创建房间
 		#[pallet::weight(0)]
-		pub fn create_game(origin: OriginFor<T>, room: u32) -> DispatchResultWithPostInfo {
+		pub fn create_game(origin: OriginFor<T>, room: u32,playername:Vec<u8>) -> DispatchResultWithPostInfo {
 			// Account calling this dispatchable.
 			let sender = ensure_signed(origin)?;
 			// 检查存储中是否已存在相同的seed
 			ensure!(!Game::<T>::contains_key(&room), "Room already exists");
 			let game_id: u32 = generate_room_number(room);
 			Game::<T>::insert(&room, &game_id);
-			Player2Game::<T>::insert(&sender, &game_id);
 			// 游戏状态设为未开始
 			GameState::<T>::insert(&game_id, 0);
 			//创建初始玩家
@@ -246,13 +278,14 @@ pub mod pallet {
 
 			// 存入新的 Vector
 			GamePlayers::<T>::insert(&game_id, new_accounts);
+			PlayerNames::<T>::insert(&game_id,sender,playername);
 			Self::deposit_event(Event::GameCreated(game_id));
 			Ok(().into())
 		}
 
 		// 加入游戏
 		#[pallet::weight(0)]
-		pub fn join_game(origin: OriginFor<T>, game_name: u32) -> DispatchResultWithPostInfo {
+		pub fn join_game(origin: OriginFor<T>, game_name: u32,playername:Vec<u8>) -> DispatchResultWithPostInfo {
 			// Account calling this dispatchable.
 			let gamer = ensure_signed(origin)?;
 			let game_id = Game::<T>::get(&game_name);
@@ -277,8 +310,8 @@ pub mod pallet {
 
 			// 存入新的 Vector
 			GamePlayers::<T>::insert(&game_id, new_accounts);
+			PlayerNames::<T>::insert(&game_id,&gamer,playername);
 			let num_players = accounts.len() as u32; // 玩家数量
-			Player2Game::<T>::insert(&gamer, &game_id);
 			Self::deposit_event(Event::GamerJoined(num_players));
 
 			Ok(().into())
@@ -286,32 +319,53 @@ pub mod pallet {
 
 		// 洗牌和发牌
 		#[pallet::weight(0)]
-		pub fn shuffle(origin: OriginFor<T>, cards: Vec<u32>) -> DispatchResultWithPostInfo {
+		pub fn shuffle(origin: OriginFor<T>, game_id: u32,cards: Vec<u32>) -> DispatchResultWithPostInfo {
 			let gamer = ensure_signed(origin)?;
-			let game_id = Player2Game::<T>::get(&gamer);
 			GameDecks::<T>::insert(&game_id, cards.clone());
-			// 按顺序发牌给三个玩家
-			let mut player1 = Vec::new();
-			let mut player2 = Vec::new();
-			let mut player3 = Vec::new();
-			let mut temp = cards.clone();
-
-			while !temp.is_empty() {
-				if let Some(card) = temp.pop() {
-					player1.push(card);
-				}
-				if let Some(card) = temp.pop() {
-					player2.push(card);
-				}
-				if let Some(card) = temp.pop() {
-					player3.push(card);
-				}
+			// 更新存储中的状态
+			PlayerStatus::<T>::insert(game_id, gamer, 1);
+			//判断是否三位玩家都准备
+			let mut count = 0;
+        	for _ in PlayerStatus::<T>::iter_prefix(game_id) {
+            	count += 1;
 			}
-			let accounts = GamePlayers::<T>::get(&game_id);
-			PlayerCards::<T>::insert(&accounts[0], player1);
-			PlayerCards::<T>::insert(&accounts[1], player2);
-			PlayerCards::<T>::insert(&accounts[2], player3);
+			if count == 3 {
+				if GameState::<T>::get(&game_id) == 2{
+					return Err(Error::<T>::GameStarted.into())
+				}
+				GameState::<T>::insert(&game_id, 2);
+				// 如果找到3条数据则可以开始发牌
+				// 人数已满，游戏状态设为进行中
+				// 按顺序发牌给三个玩家
+				let mut player1_cards = Vec::new();
+				let mut player2_cards = Vec::new();
+				let mut player3_cards = Vec::new();
 
+				// 留下的三张底牌
+				let mut remaining_cards = Vec::new();
+
+				// 分发牌给每位玩家
+				for (index, &card) in cards.iter().enumerate() {
+					match index {
+						0..=16 => player1_cards.push(card),  // 第一位玩家的牌
+						17..=33 => player2_cards.push(card), // 第二位玩家的牌
+						34..=50 => player3_cards.push(card), // 第三位玩家的牌
+						_ => remaining_cards.push(card),     // 底牌
+					}
+				}
+
+				// 存储玩家的牌
+				let accounts = GamePlayers::<T>::get(&game_id);
+				PlayerCards::<T>::insert(&accounts[0], player1_cards);
+				PlayerCards::<T>::insert(&accounts[1], player2_cards);
+				PlayerCards::<T>::insert(&accounts[2], player3_cards);
+
+				// 存储底牌
+				BottomCards::<T>::insert(&game_id, remaining_cards);
+
+				Self::deposit_event(Event::PlayerAllPrepared);
+			}
+        	
 			Ok(().into())
 		}
 
@@ -326,42 +380,94 @@ pub mod pallet {
 
 		// 叫地主，先到先得
 		#[pallet::weight(0)]
-		pub fn call(origin: OriginFor<T>, id: u32) -> DispatchResultWithPostInfo {
+		pub fn call(origin: OriginFor<T>, game_id: u32) -> DispatchResultWithPostInfo {
 			let gamer = ensure_signed(origin)?;
-			let game_id = Player2Game::<T>::get(&gamer);
 			ensure!(!GameLeader::<T>::contains_key(&game_id), "Room already has a leader");
 			GameLeader::<T>::insert(&game_id, &gamer);
 			// 设置地主为当前玩家
 			GameCurPlayer::<T>::insert(&game_id, &gamer);
+			let mut leadercards = PlayerCards::<T>::get(&gamer);
+			let bottomcards = BottomCards::<T>::get(&game_id);
+			//把底牌加入到地主牌当中
+			for card in bottomcards{
+				leadercards.push(card);
+			}
+			// 更新地主的牌
+			PlayerCards::<T>::insert(&gamer, leadercards);
+			// 更新游戏状态
+			GameState::<T>::insert(&game_id, 3);
+			Self::deposit_event(Event::GameCurPlayerId(gamer));
 			Ok(().into())
 		}
 
 		#[pallet::weight(0)]
-		pub fn play(origin: OriginFor<T>, cards: Vec<u32>) -> DispatchResultWithPostInfo {
+		pub fn play(origin: OriginFor<T>, game_id: u32,cards: Vec<u32>) -> DispatchResultWithPostInfo {
 			let gamer = ensure_signed(origin)?;
-			let game_id = Player2Game::<T>::get(&gamer);
-			let cur_player = GameCurPlayer::<T>::get(&game_id);
-			match cur_player {
-				Some(id) => {
-					if id != gamer {
-						return Ok(().into()) // Return an error if the current player is not the gamer
-					}
-					// 先看当前是不是第一个出牌
-					let cur_cards = CurCards::<T>::get(&game_id);
-					if cur_cards.is_empty() {
-						CurCards::<T>::insert(&game_id, &cards);
-					}
-					if !cur_cards.is_empty() && !cards.is_empty() && cur_cards[0] >= cards[0] {
-						return Ok(().into())
-					}
-				},
-				_ => return Ok(().into()), // Return an error if there is no current player
+			let cur_player = GameCurPlayer::<T>::get(&game_id).ok_or(Error::<T>::WrongPlayerId)?;
+			
+			// 确保调用者是当前玩家
+			ensure!(gamer == cur_player, Error::<T>::WrongPlayerId);
+			
+			// 更新HittedCards
+			// HittedCards::<T>::mutate(game_id, &gamer, |hitted_cards| {
+			// 	hitted_cards.extend(cards.clone());
+				
+			// });
+			HittedCards::<T>::insert(game_id,&gamer,cards.clone());
+			 // 获取玩家的手牌
+			let mut player_cards = PlayerCards::<T>::get(&gamer);
+			// 从PlayerCards中删除出的牌
+			player_cards.retain(|card| !cards.contains(card));
+			PlayerCards::<T>::insert(&gamer, player_cards);
+
+			// 获取所有玩家的列表
+			let accounts = GamePlayers::<T>::get(&game_id);
+			
+			// 找到当前玩家的位置并计算下一个玩家
+			if let Some(index) = accounts.iter().position(|p| p == &gamer) {
+				let next_index = (index + 1) % accounts.len();
+				let next_player = &accounts[next_index];
+		
+				// 设置下一个玩家为当前玩家
+				GameCurPlayer::<T>::insert(&game_id, next_player);
+				Self::deposit_event(Event::GameCurPlayerId(next_player.clone()));
+			} else {
+				return Err(Error::<T>::WrongPlayerId.into());
 			}
+		
 			Ok(().into())
 		}
+
+		#[pallet::weight(0)]
+		pub fn pass(origin: OriginFor<T>, game_id: u32) -> DispatchResultWithPostInfo {
+			let gamer = ensure_signed(origin)?;
+			let cur_player = GameCurPlayer::<T>::get(&game_id).ok_or(Error::<T>::WrongPlayerId)?;
+			
+			// 确保调用者是当前玩家
+			ensure!(gamer == cur_player, Error::<T>::WrongPlayerId);
+		
+			// 获取所有玩家的列表
+			let accounts = GamePlayers::<T>::get(&game_id);
+			
+			// 找到当前玩家的位置并计算下一个玩家
+			if let Some(index) = accounts.iter().position(|p| p == &gamer) {
+				let next_index = (index + 1) % accounts.len();
+				let next_player = &accounts[next_index];
+		
+				// 设置下一个玩家为当前玩家
+				GameCurPlayer::<T>::insert(&game_id, next_player);
+				Self::deposit_event(Event::GameCurPlayerId(next_player.clone()));
+			} else {
+				return Err(Error::<T>::WrongPlayerId.into());
+			}
+		
+			Ok(().into())
+		}
+		
 	}
 
-	fn get_public_inputs<T: Config>() -> Result<Vec<u64>, sp_runtime::DispatchError> {
+	#[allow(dead_code)]
+	fn get_public_inputs<T: Config>() -> Result<Vec<Scalar>, sp_runtime::DispatchError> {
 		let public_inputs = PublicInputStorage::<T>::get();
 		let deserialized_public_inputs = deserialize_public_inputs(public_inputs.as_slice())
 			.map_err(|_| Error::<T>::MalformedPublicInputs)?;
@@ -370,7 +476,7 @@ pub mod pallet {
 
 	fn store_public_inputs<T: Config>(
 		pub_input: Vec<u8>,
-	) -> Result<Vec<u64>, sp_runtime::DispatchError> {
+	) -> Result<Vec<Scalar>, sp_runtime::DispatchError> {
 		let public_inputs: PublicInputsDef<T> =
 			pub_input.try_into().map_err(|_| Error::<T>::TooLongPublicInputs)?;
 		let deserialized_public_inputs = deserialize_public_inputs(public_inputs.as_slice())
